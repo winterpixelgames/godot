@@ -263,6 +263,8 @@ struct BuildIndexSequence : BuildIndexSequence<N - 1, N - 1, Is...> {};
 template <size_t... Is>
 struct BuildIndexSequence<0, Is...> : IndexSequence<Is...> {};
 
+#define MAX_RECURSION 1000
+
 #ifdef DEBUG_ENABLED
 #define DEBUG_METHODS_ENABLED
 #endif

@@ -784,17 +784,60 @@ bool Variant::can_convert_strict(Variant::Type p_type_from, Variant::Type p_type
 	return false;
 }
 
-bool Variant::operator==(const Variant &p_variant) const {
-	if (type != p_variant.type) { //evaluation of operator== needs to be more strict
-		return false;
+bool Variant::recursive_equal(const Variant &p_variant, int recursion_count) const {
+	if (recursion_count > MAX_RECURSION) {
+		ERR_PRINT("Max recursion reached");
+		return true;
 	}
-	bool v;
-	Variant r;
-	evaluate(OP_EQUAL, *this, p_variant, r, v);
-	return r;
+
+	// Containers must be handled with recursivity checks
+	switch (type) {
+		case Variant::Type::DICTIONARY: {
+			if (p_variant.type != Variant::Type::DICTIONARY) {
+				return false;
+			}
+
+			const Dictionary v1_as_d = Dictionary(*this);
+			const Dictionary v2_as_d = Dictionary(p_variant);
+
+			if (!v1_as_d.recursive_equal(v2_as_d, recursion_count + 1)) {
+				return false;
+			}
+
+		} break;
+		case Variant::Type::ARRAY: {
+			if (p_variant.type != Variant::Type::ARRAY) {
+				return false;
+			}
+
+			const Array v1_as_a = Array(*this);
+			const Array v2_as_a = Array(p_variant);
+
+			if (!v1_as_a.recursive_equal(v2_as_a, recursion_count + 1)) {
+				return false;
+			}
+
+		} break;
+		default: {
+			if (type != p_variant.type) //evaluation of operator== needs to be more strict
+				return false;
+			bool v;
+			Variant r;
+			evaluate(OP_EQUAL, *this, p_variant, r, v);
+			return r;
+
+		} break;
+	}
+
+	return true;
+}
+
+bool Variant::operator==(const Variant &p_variant) const {
+	return recursive_equal(p_variant);
 }
 
 bool Variant::operator!=(const Variant &p_variant) const {
+	// Don't use `!recursive_equal(p_variant)` given it makes use of OP_EQUAL
 	if (type != p_variant.type) { //evaluation of operator== needs to be more strict
 		return true;
 	}
@@ -1618,12 +1661,10 @@ struct _VariantStrPair {
 };
 
 Variant::operator String() const {
-	List<const void *> stack;
-
-	return stringify(stack);
+	return stringify();
 }
 
-String Variant::stringify(List<const void *> &stack) const {
+String Variant::stringify(int recursion_count) const {
 	switch (type) {
 		case NIL:
 			return "Null";
@@ -1692,23 +1733,22 @@ String Variant::stringify(List<const void *> &stack) const {
 			return String::num(operator Color().r) + "," + String::num(operator Color().g) + "," + String::num(operator Color().b) + "," + String::num(operator Color().a);
 		case DICTIONARY: {
 			const Dictionary &d = *reinterpret_cast<const Dictionary *>(_data._mem);
-			if (stack.find(d.id())) {
+			if (recursion_count > MAX_RECURSION) {
+				ERR_PRINT("Max recursion reached");
 				return "{...}";
 			}
 
-			stack.push_back(d.id());
-
-			//const String *K=nullptr;
 			String str("{");
 			List<Variant> keys;
 			d.get_key_list(&keys);
 
 			Vector<_VariantStrPair> pairs;
 
+			recursion_count++;
 			for (List<Variant>::Element *E = keys.front(); E; E = E->next()) {
 				_VariantStrPair sp;
-				sp.key = E->get().stringify(stack);
-				sp.value = d[E->get()].stringify(stack);
+				sp.key = E->get().stringify(recursion_count);
+				sp.value = d[E->get()].stringify(recursion_count);
 
 				pairs.push_back(sp);
 			}
@@ -1811,18 +1851,19 @@ String Variant::stringify(List<const void *> &stack) const {
 		} break;
 		case ARRAY: {
 			Array arr = operator Array();
-			if (stack.find(arr.id())) {
+			if (recursion_count > MAX_RECURSION) {
+				ERR_PRINT("Max recursion reached");
 				return "[...]";
 			}
-			stack.push_back(arr.id());
 
 			String str("[");
+			recursion_count++;
 			for (int i = 0; i < arr.size(); i++) {
 				if (i) {
 					str += ", ";
 				}
 
-				str += arr[i].stringify(stack);
+				str += arr[i].stringify(recursion_count);
 			}
 
 			str += "]";
@@ -2840,7 +2881,7 @@ Variant::Variant(const Variant &p_variant) {
 	reference(p_variant);
 }
 
-uint32_t Variant::hash() const {
+uint32_t Variant::hash(int recursion_count) const {
 	switch (type) {
 		case NIL: {
 			return 0;
@@ -2968,7 +3009,7 @@ uint32_t Variant::hash() const {
 			return reinterpret_cast<const NodePath *>(_data._mem)->hash();
 		} break;
 		case DICTIONARY: {
-			return reinterpret_cast<const Dictionary *>(_data._mem)->hash();
+			return reinterpret_cast<const Dictionary *>(_data._mem)->hash(recursion_count + 1);
 
 		} break;
 		case CALLABLE: {
@@ -2982,7 +3023,7 @@ uint32_t Variant::hash() const {
 		} break;
 		case ARRAY: {
 			const Array &arr = *reinterpret_cast<const Array *>(_data._mem);
-			return arr.hash();
+			return arr.hash(recursion_count + 1);
 
 		} break;
 		case PACKED_BYTE_ARRAY: {
