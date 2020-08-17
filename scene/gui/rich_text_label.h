@@ -439,6 +439,8 @@ public:
 	void push_cell();
 	void pop();
 
+	void increment_line_count();
+
 	void clear();
 
 	void set_offset(int p_pixel);
