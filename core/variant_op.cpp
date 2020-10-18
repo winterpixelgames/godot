@@ -4071,7 +4071,11 @@ Variant Variant::iter_get(const Variant &r_iter, bool &r_valid) const {
 	return Variant();
 }
 
-Variant Variant::duplicate(bool deep) const {
+Variant Variant::duplicate(bool p_deep) const {
+	return recursive_duplicate(p_deep, 0);
+}
+
+Variant Variant::recursive_duplicate(bool deep, int recursion_count) const {
 	switch (type) {
 		case OBJECT: {
 			/*  breaks stuff :(
@@ -4085,9 +4089,9 @@ Variant Variant::duplicate(bool deep) const {
 			return *this;
 		} break;
 		case DICTIONARY:
-			return operator Dictionary().duplicate(deep);
+			return operator Dictionary().recursive_duplicate(deep, recursion_count);
 		case ARRAY:
-			return operator Array().duplicate(deep);
+			return operator Array().recursive_duplicate(deep, recursion_count);
 		default:
 			return *this;
 	}
