@@ -286,7 +286,7 @@ EditorLog::EditorLog() {
 	search_box->set_placeholder(TTR("Filter messages"));
 	search_box->set_right_icon(get_theme_icon("Search", "EditorIcons"));
 	search_box->set_clear_button_enabled(true);
-	search_box->set_visible(false);
+	search_box->set_visible(true);
 	search_box->connect("text_changed", callable_mp(this, &EditorLog::_search_changed));
 	vb_left->add_child(search_box);
 
@@ -301,6 +301,7 @@ EditorLog::EditorLog() {
 	// Clear.
 	clear_button = memnew(Button);
 	clear_button->set_flat(true);
+	clear_button->set_focus_mode(FOCUS_NONE);
 	clear_button->set_shortcut(ED_SHORTCUT("editor/clear_output", TTR("Clear Output"), KEY_MASK_CMD | KEY_MASK_SHIFT | KEY_K));
 	clear_button->connect("pressed", callable_mp(this, &EditorLog::_clear_request));
 	hb_tools->add_child(clear_button);
@@ -308,6 +309,7 @@ EditorLog::EditorLog() {
 	// Copy.
 	copy_button = memnew(Button);
 	copy_button->set_flat(true);
+	copy_button->set_focus_mode(FOCUS_NONE);
 	copy_button->set_shortcut(ED_SHORTCUT("editor/copy_output", TTR("Copy Selection"), KEY_MASK_CMD | KEY_C));
 	copy_button->connect("pressed", callable_mp(this, &EditorLog::_copy_request));
 	hb_tools->add_child(copy_button);
@@ -320,9 +322,10 @@ EditorLog::EditorLog() {
 	// Collapse.
 	collapse_button = memnew(Button);
 	collapse_button->set_flat(true);
+	collapse_button->set_focus_mode(FOCUS_NONE);
 	collapse_button->set_tooltip(TTR("Collapse duplicate messages into one log entry. Shows number of occurences."));
 	collapse_button->set_toggle_mode(true);
-	collapse_button->set_pressed(true);
+	collapse_button->set_pressed(false);
 	collapse_button->connect("toggled", callable_mp(this, &EditorLog::_set_collapse));
 	hb_tools2->add_child(collapse_button);
 
@@ -330,7 +333,8 @@ EditorLog::EditorLog() {
 	show_search_button = memnew(Button);
 	show_search_button->set_flat(true);
 	show_search_button->set_toggle_mode(true);
-	show_search_button->set_pressed(false);
+	show_search_button->set_pressed(true);
+	show_search_button->set_focus_mode(FOCUS_NONE);
 	show_search_button->set_shortcut(ED_SHORTCUT("editor/open_search", TTR("Open the search box."), KEY_MASK_CMD | KEY_F));
 	show_search_button->connect("toggled", callable_mp(this, &EditorLog::_set_search_visible));
 	hb_tools2->add_child(show_search_button);

@@ -84,6 +84,7 @@ private:
 			toggle_button->set_pressed(true);
 			toggle_button->set_text(itos(message_count));
 			toggle_button->set_tooltip(TTR(p_tooltip));
+			toggle_button->set_focus_mode(FOCUS_NONE);
 			// Don't tint the icon even when in "pressed" state.
 			toggle_button->add_theme_color_override("icon_color_pressed", Color(1, 1, 1, 1));
 			toggle_button->add_theme_style_override("focus", Ref<StyleBoxEmpty>(memnew(StyleBoxEmpty)));
@@ -115,7 +116,7 @@ private:
 	Button *copy_button;
 
 	Button *collapse_button;
-	bool collapse = true;
+	bool collapse = false;
 
 	Button *show_search_button;
 	LineEdit *search_box;
