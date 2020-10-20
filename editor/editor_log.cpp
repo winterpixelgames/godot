@@ -113,22 +113,42 @@ void EditorLog::clear() {
 	_clear_request();
 }
 
+void EditorLog::_process_message(const String &p_msg, MessageType p_type) {
+    if (messages.size() > 0 && messages[messages.size() - 1].text == p_msg) {
+        // If previous message is the same as the new one, increase previous count rather than adding another
+        // instance to the messages list.
+        LogMessage &previous = messages.write[messages.size() - 1];
+        previous.count++;
+
+        _add_log_line(previous, collapse);
+    } else {
+        // Different message to the previous one received.
+        LogMessage message(p_msg, p_type);
+        _add_log_line(message);
+        messages.push_back(message);
+    }
+
+    type_filter_map[p_type]->set_message_count(type_filter_map[p_type]->get_message_count() + 1);
+}
+
 void EditorLog::add_message(const String &p_msg, MessageType p_type) {
-	if (messages.size() > 0 && messages[messages.size() - 1].text == p_msg) {
-		// If previous message is the same as the new one, increase previous count rather than adding another
-		// instance to the messages list.
-		LogMessage &previous = messages.write[messages.size() - 1];
-		previous.count++;
-
-		_add_log_line(previous, collapse);
-	} else {
-		// Different message to the previous one received.
-		LogMessage message(p_msg, p_type);
-		_add_log_line(message);
-		messages.push_back(message);
-	}
-
-	type_filter_map[p_type]->set_message_count(type_filter_map[p_type]->get_message_count() + 1);
+    // Parse out newlines as separate messages
+    int msg_start = 0;
+    int msg_length = 0;
+    for(int i = 0; i < p_msg.size(); i++) {
+        if(p_msg[i] == '\n') {
+            if(msg_length > 0) {
+                _process_message(p_msg.substr(msg_start, msg_length), p_type);
+                msg_length = 0;
+                msg_start = i+1;
+                continue;
+            }
+        }
+        if(i == p_msg.size() -1) {
+            _process_message(p_msg.substr(msg_start, msg_length), p_type);
+        }
+        msg_length++;
+    }
 }
 
 void EditorLog::set_tool_button(Button *p_tool_button) {

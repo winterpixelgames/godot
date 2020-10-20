@@ -141,6 +141,7 @@ private:
 	void _set_filter_active(bool p_active, int p_message_type);
 	void _set_search_visible(bool p_visible);
 	void _search_changed(const String &p_text);
+    void _process_message(const String &p_msg, MessageType p_type = MSG_TYPE_STD);
 
 	void _reset_message_counts();
 
