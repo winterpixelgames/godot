@@ -73,6 +73,7 @@
 #include "servers/rendering/rendering_server_raster.h"
 #include "servers/rendering/rendering_server_wrap_mt.h"
 #include "servers/xr_server.h"
+#include "thirdparty/tracy/Tracy.hpp"
 
 #ifdef TESTS_ENABLED
 #include "tests/test_main.h"
@@ -2352,9 +2353,10 @@ static uint64_t physics_process_max = 0;
 static uint64_t idle_process_max = 0;
 
 bool Main::iteration() {
+	FrameMark
 	//for now do not error on this
 	//ERR_FAIL_COND_V(iterating, false);
-
+	
 	iterating++;
 
 	uint64_t ticks = OS::get_singleton()->get_ticks_usec();

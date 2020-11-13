@@ -114,6 +114,7 @@ opts.Add(EnumVariable("target", "Compilation target", "debug", ("debug", "releas
 opts.Add(EnumVariable("optimize", "Optimization type", "speed", ("speed", "size")))
 
 opts.Add(BoolVariable("tools", "Build the tools (a.k.a. the Godot editor)", True))
+opts.Add(BoolVariable("tracy", "Enable tracy frame profiler", True))
 opts.Add(BoolVariable("tests", "Build the unit tests", False))
 opts.Add(BoolVariable("use_lto", "Use link-time optimization", False))
 opts.Add(BoolVariable("use_precise_math_checks", "Math checks use very precise epsilon (debug option)", False))
@@ -561,6 +562,8 @@ if selected_platform in platform_list:
     env["LIBSUFFIX"] = suffix + env["LIBSUFFIX"]
     env["SHLIBSUFFIX"] = suffix + env["SHLIBSUFFIX"]
 
+    if env["tracy"]:
+        env.Append(CPPDEFINES=["TRACY_ENABLE"])
     if env.use_ptrcall:
         env.Append(CPPDEFINES=["PTRCALL_ENABLED"])
     if env["tools"]:
