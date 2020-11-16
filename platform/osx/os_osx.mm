@@ -35,11 +35,63 @@
 #include "dir_access_osx.h"
 #include "display_server_osx.h"
 #include "main/main.h"
+#include "thirdparty/tracy/Tracy.hpp"
+#ifdef TRACY_ENABLE
+#include "thirdparty/tracy/client/TracyProfiler.hpp"
+#endif
 
 #include <dlfcn.h>
 #include <libproc.h>
 #include <mach-o/dyld.h>
 #include <os/log.h>
+#include <CoreVideo/CoreVideo.h>
+#include <condition_variable>
+
+class OS_OSX;
+static bool cv_init = false;
+CVDisplayLinkRef displayLink;
+OS_OSX* cv_osx;
+const char* VSYNC = "VSYNC";
+int64_t tracy_first_tick = 0;
+uint64_t display_tick_acc = 0;
+uint64_t last_display_tick = 0;
+
+CVReturn displayCallback(CVDisplayLinkRef displayLink, const CVTimeStamp *inNow, const CVTimeStamp *inOutputTime, CVOptionFlags flagsIn, CVOptionFlags *flagsOut, void *displayLinkContext) {
+	using namespace tracy;
+	// Called back in macOS / iOS helper Thread
+	//FrameMarkNamed("VSYNC")
+	//std::lock_guard<std::mutex> guard(swap_mutex);
+	//uint64_t previous_time = swap_last_frame_time;
+	uint64_t display_time = inOutputTime->hostTime;
+	// Custom Tracy logic:
+	//if( !VSYNC ) GetProfiler().m_frameCount.fetch_add( 1, std::memory_order_relaxed );
+
+	if(tracy_first_tick == 0) {
+		tracy_first_tick = tracy::Profiler::GetTime();
+		last_display_tick = display_time;
+	}
+	else {
+		uint64_t delta = (display_time - last_display_tick);
+		//int64_t tracy_delta = tracy::Profiler::GetTime() - tracy_first_tick;
+		last_display_tick = display_time;
+		display_tick_acc += delta;
+	}
+	#ifdef TRACY_ON_DEMAND
+    	if( !GetProfiler().IsConnected() ) return kCVReturnSuccess;
+	#endif
+    tracy::TracyLfqPrepare( tracy::QueueType::FrameMarkMsg );
+    MemWrite( &item->frameMark.time, tracy_first_tick + display_tick_acc );
+	//MemWrite( &item->frameMark.time,tracy::Profiler::GetTime());
+    MemWrite( &item->frameMark.name, uint64_t( VSYNC ) );
+    TracyLfqCommit;
+
+	//int64_t difference = display_time - previous_time;
+	//float delta = difference/1000000.0f;
+	//OS::last_frame_timestamp = display_time;
+	//swap_last_frame_time = display_time;
+	//swap_cv.notify_one();
+	return kCVReturnSuccess;
+}
 
 /*************************************************************************/
 /* OSXTerminalLogger                                                     */
@@ -314,16 +366,29 @@ void OS_OSX::run() {
 
 	main_loop->init();
 
+	if(!cv_init) {
+		cv_osx = this;
+		cv_init = true;
+		CVDisplayLinkCreateWithActiveCGDisplays(&displayLink);
+		CVDisplayLinkSetOutputCallback(displayLink, &displayCallback, this);
+		CVDisplayLinkStart(displayLink);
+	}
+
 	bool quit = false;
 	while (!force_quit && !quit) {
 		@try {
-			if (DisplayServer::get_singleton()) {
-				DisplayServer::get_singleton()->process_events(); // get rid of pending events
-			}
-			joypad_osx->process_joypads();
+			{	
+				{
+					ZoneScopedNC("OS::run - process input", tracy::Color::SeaGreen1)
+					if (DisplayServer::get_singleton()) {
+						DisplayServer::get_singleton()->process_events(); // get rid of pending events
+					}
+					joypad_osx->process_joypads();
+				}
 
-			if (Main::iteration()) {
-				quit = true;
+				if (Main::iteration()) {
+					quit = true;
+				}
 			}
 		} @catch (NSException *exception) {
 			ERR_PRINT("NSException: " + String([exception reason].UTF8String));

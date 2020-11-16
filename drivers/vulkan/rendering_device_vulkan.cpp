@@ -37,6 +37,7 @@
 #include "drivers/vulkan/vulkan_context.h"
 
 #include "thirdparty/spirv-reflect/spirv_reflect.h"
+#include "thirdparty/tracy/Tracy.hpp"
 
 //#define FORCE_FULL_BARRIER
 
@@ -7053,6 +7054,7 @@ void RenderingDeviceVulkan::submit() {
 }
 
 void RenderingDeviceVulkan::sync() {
+	ZoneScopedNC("RenderingDeviceVulkan::sync", tracy::Color::LightCyan1)
 	ERR_FAIL_COND_MSG(local_device.is_null(), "Only local devices can submit and sync.");
 	ERR_FAIL_COND_MSG(!local_device_processing, "sync can only be called after a submit");
 

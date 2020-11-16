@@ -38,6 +38,7 @@
 #include "scene/resources/audio_stream_sample.h"
 #include "servers/audio/audio_driver_dummy.h"
 #include "servers/audio/effects/audio_effect_compressor.h"
+#include "thirdparty/tracy/Tracy.hpp"
 
 #ifdef TOOLS_ENABLED
 #define MARK_EDITED set_edited(true);
@@ -954,6 +955,7 @@ void AudioServer::init() {
 }
 
 void AudioServer::update() {
+	ZoneScopedNC("AudioServer::update", tracy::Color::SeaGreen1)
 #ifdef DEBUG_ENABLED
 	if (EngineDebugger::is_profiling("servers")) {
 		// Driver time includes server time + effects times

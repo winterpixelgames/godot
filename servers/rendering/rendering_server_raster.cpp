@@ -37,6 +37,7 @@
 #include "rendering_server_canvas.h"
 #include "rendering_server_globals.h"
 #include "rendering_server_scene.h"
+#include "thirdparty/tracy/Tracy.hpp"
 
 // careful, these may run in different threads than the visual server
 
@@ -95,6 +96,7 @@ void RenderingServerRaster::request_frame_drawn_callback(Object *p_where, const 
 }
 
 void RenderingServerRaster::draw(bool p_swap_buffers, double frame_step) {
+	ZoneScopedNC("RenderingServerRaster::draw", tracy::Color::SeaGreen1)
 	//needs to be done before changes is reset to 0, to not force the editor to redraw
 	RS::get_singleton()->emit_signal("frame_pre_draw");
 

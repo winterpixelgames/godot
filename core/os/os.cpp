@@ -37,6 +37,8 @@
 #include "core/os/midi_driver.h"
 #include "core/version_generated.gen.h"
 #include "servers/audio_server.h"
+#include "thirdparty/tracy/Tracy.hpp"
+
 
 #include <stdarg.h>
 
@@ -470,6 +472,7 @@ void OS::close_midi_inputs() {
 }
 
 void OS::add_frame_delay(bool p_can_draw) {
+	ZoneScopedNC("OS::add_frame_delay", tracy::Color::SeaGreen1)
 	const uint32_t frame_delay = Engine::get_singleton()->get_frame_delay();
 	if (frame_delay) {
 		// Add fixed frame delay to decrease CPU/GPU usage. This doesn't take
