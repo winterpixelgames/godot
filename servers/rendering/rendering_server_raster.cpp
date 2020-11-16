@@ -38,6 +38,11 @@
 #include "rendering_server_globals.h"
 #include "rendering_server_scene.h"
 
+#include "thirdparty/tracy/Tracy.hpp"
+#ifdef TRACY_ENABLE
+#include "thirdparty/tracy/common/TracySystem.hpp"
+#endif
+
 // careful, these may run in different threads than the visual server
 
 int RenderingServerRaster::changes = 0;
@@ -95,28 +100,45 @@ void RenderingServerRaster::request_frame_drawn_callback(Object *p_where, const 
 }
 
 void RenderingServerRaster::draw(bool p_swap_buffers, double frame_step) {
+	ZoneScopedNC("Draw", tracy::Color::LightPink1);
 	//needs to be done before changes is reset to 0, to not force the editor to redraw
 	RS::get_singleton()->emit_signal("frame_pre_draw");
 
 	changes = 0;
 
 	RSG::rasterizer->begin_frame(frame_step);
-
+	{
+	ZoneScopedNC("GenerateCommands", tracy::Color::LightPink2);
 	TIMESTAMP_BEGIN()
 
+	{ZoneScopedNC("scene", tracy::Color::LightPink3);
 	RSG::scene_render->update(); //update scenes stuff before updating instances
+	}
 
+	{ZoneScopedNC("dirty_instances", tracy::Color::LightPink3);
 	RSG::scene->update_dirty_instances(); //update scene stuff
+	}
 
+	{ZoneScopedNC("particles", tracy::Color::LightPink3);
 	RSG::scene->render_particle_colliders();
 	RSG::storage->update_particles(); //need to be done after instances are updated (colliders and particle transforms), and colliders are rendered
+	}
 
+	{ZoneScopedNC("probes", tracy::Color::LightPink3);
 	RSG::scene->render_probes();
+	}
+	{ZoneScopedNC("viewports", tracy::Color::LightPink3);
 	RSG::viewport->draw_viewports();
+	}
+	{ZoneScopedNC("canvas_update", tracy::Color::LightPink3);
 	RSG::canvas_render->update();
+	}
 
 	_draw_margins();
+	}
 	RSG::rasterizer->end_frame(p_swap_buffers);
+	FrameMark // Tracy Profiler FrameMark
+
 
 	while (frame_drawn_callbacks.front()) {
 		Object *obj = ObjectDB::get_instance(frame_drawn_callbacks.front()->get().object);

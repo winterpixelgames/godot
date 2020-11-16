@@ -75,6 +75,7 @@
 #include "servers/xr_server.h"
 #include "thirdparty/tracy/Tracy.hpp"
 
+
 #ifdef TESTS_ENABLED
 #include "tests/test_main.h"
 #endif
@@ -2353,7 +2354,8 @@ static uint64_t physics_process_max = 0;
 static uint64_t idle_process_max = 0;
 
 bool Main::iteration() {
-	FrameMark
+	ZoneScopedNC("Main::iteration", tracy::Color::Ivory1);
+	tracy::SetThreadName("MainThread");
 	//for now do not error on this
 	//ERR_FAIL_COND_V(iterating, false);
 	
@@ -2393,6 +2395,8 @@ bool Main::iteration() {
 
 	bool exit = false;
 
+	{ ZoneScopedNC("Physics", tracy::Color::DarkSeaGreen1); // Tracy Profiler Zone Scope
+
 	Engine::get_singleton()->_in_physics = true;
 
 	for (int iters = 0; iters < advance.physics_steps; ++iters) {
@@ -2427,13 +2431,16 @@ bool Main::iteration() {
 	}
 
 	Engine::get_singleton()->_in_physics = false;
+	} // Tracy Profiler Zone Scope
 
 	uint64_t idle_begin = OS::get_singleton()->get_ticks_usec();
 
+	{ ZoneScopedNC("Message-Queue", tracy::Color::DarkSeaGreen2); // Tracy Profiler Zone Scope
 	if (OS::get_singleton()->get_main_loop()->idle(step * time_scale)) {
 		exit = true;
 	}
 	message_queue->flush();
+	}
 
 	RenderingServer::get_singleton()->sync(); //sync if still drawing from previous frames.
 
@@ -2459,10 +2466,14 @@ bool Main::iteration() {
 		ScriptServer::get_language(i)->frame();
 	}
 
+	{ ZoneScopedNC("AudioServer Update", tracy::Color::DarkSeaGreen3); // Tracy Profiler Zone Scope
 	AudioServer::get_singleton()->update();
+	}
 
 	if (EngineDebugger::is_active()) {
+		{ ZoneScopedNC("EngineDebugger ", tracy::Color::DarkSeaGreen3); // Tracy Profiler Zone Scope
 		EngineDebugger::get_singleton()->iteration(frame_time, idle_process_ticks, physics_process_ticks, frame_slice);
+		}
 	}
 
 	frames++;
@@ -2493,7 +2504,9 @@ bool Main::iteration() {
 		return exit;
 	}
 
-	OS::get_singleton()->add_frame_delay(DisplayServer::get_singleton()->window_can_draw());
+	{ZoneScopedNC("add_frame_delay", tracy::Color::LightPink1)
+		OS::get_singleton()->add_frame_delay(DisplayServer::get_singleton()->window_can_draw());
+	}
 
 #ifdef TOOLS_ENABLED
 	if (auto_build_solutions) {

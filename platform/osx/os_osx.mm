@@ -35,6 +35,7 @@
 #include "dir_access_osx.h"
 #include "display_server_osx.h"
 #include "main/main.h"
+#include "thirdparty/tracy/Tracy.hpp"
 
 #include <dlfcn.h>
 #include <libproc.h>
@@ -317,10 +318,13 @@ void OS_OSX::run() {
 	bool quit = false;
 	while (!force_quit && !quit) {
 		@try {
-			if (DisplayServer::get_singleton()) {
-				DisplayServer::get_singleton()->process_events(); // get rid of pending events
+			{
+				ZoneScopedNC("Process Input", tracy::Color::SeaGreen1);
+				if (DisplayServer::get_singleton()) {
+					DisplayServer::get_singleton()->process_events(); // get rid of pending events
+				}
+				joypad_osx->process_joypads();
 			}
-			joypad_osx->process_joypads();
 
 			if (Main::iteration()) {
 				quit = true;

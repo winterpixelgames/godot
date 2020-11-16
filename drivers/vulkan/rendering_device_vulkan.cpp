@@ -35,6 +35,7 @@
 #include "core/os/os.h"
 #include "core/templates/hashfuncs.h"
 #include "drivers/vulkan/vulkan_context.h"
+#include "thirdparty/tracy/Tracy.hpp"
 
 #include "thirdparty/spirv-reflect/spirv_reflect.h"
 
@@ -6399,6 +6400,7 @@ void RenderingDeviceVulkan::draw_list_disable_scissor(DrawListID p_list) {
 }
 
 void RenderingDeviceVulkan::draw_list_end() {
+	ZoneScopedNC("RenderingDeviceVulkan::draw_list_end", tracy::Color::LightPink4);
 	_THREAD_SAFE_METHOD_
 
 	ERR_FAIL_COND_MSG(!draw_list, "Immediate draw list is already inactive.");
@@ -6466,12 +6468,14 @@ void RenderingDeviceVulkan::draw_list_end() {
 	// To ensure proper synchronization, we must make sure rendering is done before:
 	//  * Some buffer is copied
 	//  * Another render pass happens (since we may be done
-
+	// Lets NOT do this
+	/*
 #ifdef FORCE_FULL_BARRIER
 	_full_barrier(true);
 #else
 	_memory_barrier(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, true);
 #endif
+	*/
 }
 
 /***********************/

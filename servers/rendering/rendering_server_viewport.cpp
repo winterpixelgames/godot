@@ -34,6 +34,8 @@
 #include "rendering_server_canvas.h"
 #include "rendering_server_globals.h"
 #include "rendering_server_scene.h"
+#include "thirdparty/tracy/Tracy.hpp"
+
 
 static Transform2D _canvas_get_transform(RenderingServerViewport::Viewport *p_viewport, RenderingServerCanvas::Canvas *p_canvas, RenderingServerViewport::Viewport::CanvasData *p_canvas_data, const Vector2 &p_vp_size) {
 	Transform2D xf = p_viewport->global_transform;
@@ -417,6 +419,7 @@ void RenderingServerViewport::_draw_viewport(Viewport *p_viewport, XRInterface::
 }
 
 void RenderingServerViewport::draw_viewports() {
+	ZoneScopedNC("draw_viewports", tracy::Color::LightPink4);
 	timestamp_vp_map.clear();
 
 	// get our xr interface in case we need it
@@ -572,12 +575,17 @@ void RenderingServerViewport::draw_viewports() {
 	}
 	RSG::scene_render->set_debug_draw_mode(RS::VIEWPORT_DEBUG_DRAW_DISABLED);
 
+	{
+	ZoneScopedNC("draw_viewports-prepare_for_blitting_render_targets", tracy::Color::LightPink4);
 	RENDER_TIMESTAMP("<Render Viewports");
 	//this needs to be called to make screen swapping more efficient
 	RSG::rasterizer->prepare_for_blitting_render_targets();
-
+	}
+	{
+		ZoneScopedNC("draw_viewports-blit", tracy::Color::LightPink4);
 	for (Map<int, Vector<Rasterizer::BlitToScreen>>::Element *E = blit_to_screen_list.front(); E; E = E->next()) {
 		RSG::rasterizer->blit_render_targets_to_screen(E->key(), E->get().ptr(), E->get().size());
+	}
 	}
 }
 

@@ -37,6 +37,9 @@
 
 #include "vk_enum_string_helper.h"
 
+#define TRACY_ENABLE 1
+#include "thirdparty/tracy/Tracy.hpp"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -764,7 +767,9 @@ Error VulkanContext::_clean_up_swap_chain(Window *window) {
 	if (!window->swapchain) {
 		return OK;
 	}
+	{ ZoneScopedNC("Vulkan-Wait", tracy::Color::PaleVioletRed1)
 	vkDeviceWaitIdle(device);
+	}
 
 	//this destroys images associated it seems
 	fpDestroySwapchainKHR(device, window->swapchain, nullptr);
@@ -1154,10 +1159,14 @@ void VulkanContext::append_command_buffer(const VkCommandBuffer &pCommandBuffer)
 
 void VulkanContext::flush(bool p_flush_setup, bool p_flush_pending) {
 	// ensure everything else pending is executed
-	vkDeviceWaitIdle(device);
+	{
+		ZoneScopedNC("Vulkan-Wait", tracy::Color::PaleVioletRed1)
+		vkDeviceWaitIdle(device);
+	}
 
 	//flush the pending setup buffer
-
+	{
+	ZoneScopedNC("Vulkan-Submit", tracy::Color::PaleVioletRed2)
 	if (p_flush_setup && command_buffer_queue[0]) {
 		//use a fence to wait for everything done
 		VkSubmitInfo submit_info;
@@ -1173,6 +1182,7 @@ void VulkanContext::flush(bool p_flush_setup, bool p_flush_pending) {
 		VkResult err = vkQueueSubmit(graphics_queue, 1, &submit_info, VK_NULL_HANDLE);
 		command_buffer_queue.write[0] = nullptr;
 		ERR_FAIL_COND(err);
+		ZoneScopedNC("Vulkan-Wait", tracy::Color::PaleVioletRed1)
 		vkDeviceWaitIdle(device);
 	}
 
@@ -1191,9 +1201,11 @@ void VulkanContext::flush(bool p_flush_setup, bool p_flush_pending) {
 		submit_info.pSignalSemaphores = nullptr;
 		VkResult err = vkQueueSubmit(graphics_queue, 1, &submit_info, VK_NULL_HANDLE);
 		ERR_FAIL_COND(err);
+		ZoneScopedNC("Vulkan-Wait", tracy::Color::PaleVioletRed1)
 		vkDeviceWaitIdle(device);
 
 		command_buffer_count = 1;
+	}
 	}
 }
 
@@ -1204,9 +1216,12 @@ Error VulkanContext::prepare_buffers() {
 
 	VkResult err;
 
+
 	// Ensure no more than FRAME_LAG renderings are outstanding
-	vkWaitForFences(device, 1, &fences[frame_index], VK_TRUE, UINT64_MAX);
-	vkResetFences(device, 1, &fences[frame_index]);
+	// this blocks, and we want to move this work into vkQueueSubmit (which we will do on another thread).  Lets rely on 
+	// rely on VK_PRESENT_MODE_FIFO_KHR to block a queue push until one is available.
+	//vkWaitForFences(device, 1, &fences[frame_index], VK_TRUE, UINT64_MAX);
+	//vkResetFences(device, 1, &fences[frame_index]);
 
 	for (Map<int, Window>::Element *E = windows.front(); E; E = E->next()) {
 		Window *w = &E->get();
@@ -1239,11 +1254,12 @@ Error VulkanContext::prepare_buffers() {
 	}
 
 	buffers_prepared = true;
-
+	
 	return OK;
 }
 
 Error VulkanContext::swap_buffers() {
+	ZoneScopedNC("Vulkan-swap_buffers", tracy::Color::LightPink1)
 	if (!queues_initialized) {
 		return OK;
 	}
@@ -1295,13 +1311,16 @@ Error VulkanContext::swap_buffers() {
 	submit_info.pCommandBuffers = commands_ptr;
 	submit_info.signalSemaphoreCount = 1;
 	submit_info.pSignalSemaphores = &draw_complete_semaphores[frame_index];
+	{ZoneScopedNC("Vulkan-vkQueueSubmit1", tracy::Color::LightPink2)
 	err = vkQueueSubmit(graphics_queue, 1, &submit_info, fences[frame_index]);
+	}
 	ERR_FAIL_COND_V(err, ERR_CANT_CREATE);
 
 	command_buffer_queue.write[0] = nullptr;
 	command_buffer_count = 1;
 
 	if (separate_present_queue) {
+		ZoneScopedNC("Vulkan-vkQueueSubmit2", tracy::Color::LightPink2)
 		// If we are using separate queues, change image ownership to the
 		// present queue before presenting, waiting for the draw complete
 		// semaphore and signalling the ownership released semaphore when finished
@@ -1427,6 +1446,7 @@ Error VulkanContext::swap_buffers() {
 		}
 	}
 #endif
+	{ ZoneScopedNC("Vulkan-fpQueuePresentKHR", tracy::Color::LightPink2)
 	static int total_frames = 0;
 	total_frames++;
 	//	print_line("current buffer:  " + itos(current_buffer));
@@ -1449,6 +1469,7 @@ Error VulkanContext::swap_buffers() {
 	}
 
 	buffers_prepared = false;
+	}
 	return OK;
 }
 
@@ -1556,6 +1577,7 @@ void VulkanContext::local_device_sync(RID p_local_device) {
 	LocalDevice *ld = local_device_owner.getornull(p_local_device);
 	ERR_FAIL_COND(!ld->waiting);
 
+	ZoneScopedNC("Vulkan-Wait", tracy::Color::PaleVioletRed1)
 	vkDeviceWaitIdle(ld->device);
 	ld->waiting = false;
 }
