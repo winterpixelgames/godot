@@ -39,6 +39,11 @@
 #include "servers/display_server.h"
 
 #include <vulkan/vulkan.h>
+#include <condition_variable>
+#include <mutex>
+#include <vector>
+#include <thread>
+
 
 class VulkanContext {
 	enum {
@@ -112,6 +117,22 @@ class VulkanContext {
 
 	Vector<VkCommandBuffer> command_buffer_queue;
 	int command_buffer_count = 1;
+
+
+	// Multithreaded GPU work submission
+	struct GPUSubmissionWork {
+		int queue_frame_index;
+		int render_image_index;
+		std::vector<VkCommandBuffer> command_buffers;
+	};
+
+	bool render_loop_started = false;
+	std::condition_variable render_loop_cv{};
+	std::mutex render_loop_mutex{};
+	std::vector<GPUSubmissionWork> render_work_queue{};
+	std::thread render_thread;
+	void render_loop();
+
 
 	// Extensions.
 

@@ -36,6 +36,7 @@
 #include "core/version.h"
 
 #include "vk_enum_string_helper.h"
+#include "thirdparty/tracy/Tracy.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1197,6 +1198,24 @@ void VulkanContext::flush(bool p_flush_setup, bool p_flush_pending) {
 	}
 }
 
+void VulkanContext::render_loop() {
+	tracy::SetThreadName("RenderThread");
+
+		while(true) {
+		GPUSubmissionWork work; //todo support more than 1 window
+		{
+			std::unique_lock<std::mutex> lk(render_loop_mutex);
+			render_loop_cv.wait(lk, [this]{ return render_work_queue.size() > 0; });
+			work = render_work_queue.at(0);
+			render_work_queue.erase(render_work_queue.begin());
+		}
+		
+
+
+		render_loop_cv.notify_one(); //testing single threaded
+	}
+}
+
 Error VulkanContext::prepare_buffers() {
 	if (!queues_initialized) {
 		return OK;
@@ -1220,6 +1239,7 @@ Error VulkanContext::prepare_buffers() {
 			err =
 					fpAcquireNextImageKHR(device, w->swapchain, UINT64_MAX,
 							image_acquired_semaphores[frame_index], VK_NULL_HANDLE, &w->current_buffer);
+			print_line("aquired vulkan vkSwapchainImage: " + itos(w->current_buffer));
 
 			if (err == VK_ERROR_OUT_OF_DATE_KHR) {
 				// swapchain is out of date (e.g. the window was resized) and
@@ -1247,6 +1267,52 @@ Error VulkanContext::swap_buffers() {
 	if (!queues_initialized) {
 		return OK;
 	}
+
+	if(!render_loop_started) {
+		render_thread = std::thread(&VulkanContext::render_loop, this);
+		render_loop_started = true;
+	}
+
+	// support 1 window only for now...
+	int queue_frame_index = frame_index;
+	int window_image_index = 0;
+	for (Map<int, Window>::Element *E = windows.front(); E; E = E->next()) {
+		Window *w = &E->get();
+
+		if (w->swapchain == VK_NULL_HANDLE) {
+			continue;
+		}
+		window_image_index = w->current_buffer;
+	}
+
+	// Submit work to the GPU
+	/*
+	render_loop_mutex.lock();
+	GPUSubmissionWork work;
+	work.queue_frame_index = frame_index;
+	work.render_image_index = window_image_index;
+	work.command_buffers = std::vector<VkCommandBuffer>();
+
+	for(int i = 0; i < command_buffer_count; i++) {
+		if (command_buffer_queue[i] != nullptr) {
+			work.command_buffers.push_back(command_buffer_queue[i]);
+		}
+	}
+	command_buffer_queue.write[0] = nullptr;
+	command_buffer_count = 1;
+
+	render_work_queue.push_back(work);
+	render_loop_mutex.unlock();
+	render_loop_cv.notify_one(); // notify render thread work is ready
+
+	// before we return we DO have to wait for frame-1 drawing to complete
+	// rendering_device_vulkan will IMMEDIATELY start a vkBeginCommandBuffer
+	{
+		std::unique_lock<std::mutex> lk(render_loop_mutex);
+		render_loop_cv.wait(lk, [this]{ return render_index_queue.size() == 0; });
+	}*/
+
+
 
 	//	print_line("swapbuffers?");
 	VkResult err;
@@ -1449,6 +1515,7 @@ Error VulkanContext::swap_buffers() {
 	}
 
 	buffers_prepared = false;
+
 	return OK;
 }
 
