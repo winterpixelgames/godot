@@ -96,7 +96,6 @@ public:
 
 
 	enum RenderThreadMode {
-
 		RENDER_THREAD_UNSAFE,
 		RENDER_THREAD_SAFE,
 		RENDER_SEPARATE_THREAD
