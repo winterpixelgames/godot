@@ -264,6 +264,7 @@ Error VulkanContext::_initialize_extensions() {
 			}
 		}
 
+
 		free(instance_extensions);
 	}
 
@@ -1549,8 +1550,8 @@ Error VulkanContext::swap_buffers() {
 	buffers_prepared = false;
 
 	// we've ticked over to a new frame_index.  Wait for presentation
-	//vkWaitForFences(device, 1, &fences[frame_index], VK_TRUE, UINT64_MAX);
-	//vkResetFences(device, 1, &fences[frame_index]);
+	vkWaitForFences(device, 1, &fences[frame_index], VK_TRUE, UINT64_MAX);
+	vkResetFences(device, 1, &fences[frame_index]);
 
 	return OK;
 }

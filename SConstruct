@@ -231,7 +231,7 @@ Help(opts.GenerateHelpText(env_base))
 if env_base["builtin_moltenvk"]:
     print("builtin_moltenvk")
     root_path = Dir('#').abspath
-    env_base.Prepend(LINKFLAGS=["-L"+root_path+"/thirdparty/MoltenVK/MoltenVK/dylib/macOS", "-lMoltenVK", "-rpath", root_path+"/thirdparty/MoltenVK/MoltenVK/dylib/macOS"])
+    env_base.Prepend(LINKFLAGS=["-L"+root_path+"/thirdparty/MoltenVK/Package/Release/MoltenVK/dylib/macOS", "-lMoltenVK", "-rpath", root_path+"/thirdparty/MoltenVK/Package/Release/MoltenVK/dylib/macOS"])
 
 # add default include paths
 
