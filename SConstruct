@@ -227,6 +227,12 @@ methods.write_modules(modules_detected)
 opts.Update(env_base)
 Help(opts.GenerateHelpText(env_base))
 
+
+if env_base["builtin_moltenvk"]:
+    print("builtin_moltenvk")
+    root_path = Dir('#').abspath
+    env_base.Prepend(LINKFLAGS=["-L"+root_path+"/thirdparty/MoltenVK/MoltenVK/dylib/macOS", "-lMoltenVK", "-rpath", root_path+"/thirdparty/MoltenVK/MoltenVK/dylib/macOS"])
+
 # add default include paths
 
 env_base.Prepend(CPPPATH=["#"])
