@@ -96,28 +96,34 @@ void RenderingServerRaster::request_frame_drawn_callback(Object *p_where, const 
 }
 
 void RenderingServerRaster::draw(bool p_swap_buffers, double frame_step) {
-	ZoneScopedNC("RenderingServerRaster::draw", tracy::Color::SeaGreen1)
-	//needs to be done before changes is reset to 0, to not force the editor to redraw
-	RS::get_singleton()->emit_signal("frame_pre_draw");
 
-	changes = 0;
+	{
+		ZoneScopedNC("Generate CPU Work", tracy::Color::PaleVioletRed1);
+		std::string frame_label = std::string("Generate CPU Work for frame: ") + std::to_string(OS::get_singleton()->get_current_frame());
+		ZoneName(frame_label.c_str(), frame_label.size());
+		
+		//needs to be done before changes is reset to 0, to not force the editor to redraw
+		RS::get_singleton()->emit_signal("frame_pre_draw");
 
-	RSG::rasterizer->begin_frame(frame_step);
+		changes = 0;
 
-	TIMESTAMP_BEGIN()
+		RSG::rasterizer->begin_frame(frame_step);
 
-	RSG::scene_render->update(); //update scenes stuff before updating instances
+		TIMESTAMP_BEGIN()
 
-	RSG::scene->update_dirty_instances(); //update scene stuff
+		RSG::scene_render->update(); //update scenes stuff before updating instances
 
-	RSG::scene->render_particle_colliders();
-	RSG::storage->update_particles(); //need to be done after instances are updated (colliders and particle transforms), and colliders are rendered
+		RSG::scene->update_dirty_instances(); //update scene stuff
 
-	RSG::scene->render_probes();
-	RSG::viewport->draw_viewports();
-	RSG::canvas_render->update();
+		RSG::scene->render_particle_colliders();
+		RSG::storage->update_particles(); //need to be done after instances are updated (colliders and particle transforms), and colliders are rendered
 
-	_draw_margins();
+		RSG::scene->render_probes();
+		RSG::viewport->draw_viewports();
+		RSG::canvas_render->update();
+
+		_draw_margins();
+	}
 	RSG::rasterizer->end_frame(p_swap_buffers);
 
 	while (frame_drawn_callbacks.front()) {

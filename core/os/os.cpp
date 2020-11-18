@@ -39,8 +39,8 @@
 #include "servers/audio_server.h"
 #include "thirdparty/tracy/Tracy.hpp"
 
-
 #include <stdarg.h>
+#include <algorithm>
 
 OS *OS::singleton = nullptr;
 uint64_t OS::target_ticks = 0;
@@ -469,6 +469,55 @@ void OS::close_midi_inputs() {
 	} else {
 		ERR_PRINT(vformat("MIDI input isn't supported on %s.", OS::get_singleton()->get_name()));
 	}
+}
+
+void OS::push_pending_frame(int64_t frame_number) {
+	print_line("push_pending_frame: " + itos(frame_number));
+	presentation_frame_mutex.lock();
+	frames_pending.push_back(frame_number);
+	presentation_frame_mutex.unlock();
+}
+
+void OS::present_frame(int64_t frame_number,  const std::function<void()>& present_func) {
+	print_line("present_frame: " + itos(frame_number));
+	presentation_frame_mutex.lock();
+	present_func();
+
+	auto pending_pos = std::find(frames_pending.begin(), frames_pending.end(), frame_number);
+	assert(std::find(frames_pending.begin(), frames_pending.end(), frame_number) != frames_pending.end());
+	frames_pending.erase(pending_pos);
+	frames_presented.push_back(frame_number);
+	presentation_frame_mutex.unlock();
+}
+
+void OS::consume_next_frame(const std::function<void()>& consume_func) {
+	print_line("consume_next_frame");
+	presentation_frame_mutex.lock();
+	consume_func();
+	if(frames_presented.size() > 0) {
+		print_line("consumed frame: " + itos(frames_presented[0]));
+		frames_presented.erase(frames_presented.begin());
+	}
+	presentation_frame_mutex.unlock();
+	presentation_cv.notify_one();
+}
+
+void OS::wait_until_frame_consumed(int64_t frame_number) {
+	if(frame_number < 0)
+		return;
+	print_line("wait_until_frame_consumed: " + itos(frame_number));
+	std::unique_lock<std::mutex> lk(presentation_frame_mutex);
+	presentation_cv.wait(lk, [this, frame_number]{ 
+
+		if(std::find(frames_pending.begin(), frames_pending.end(), frame_number) != frames_pending.end())
+			return false; // frame is pending presentation
+
+		if(std::find(frames_presented.begin(), frames_presented.end(), frame_number) != frames_presented.end())
+			return false; // frame was presented has not consumed yet
+		else
+			return true; // there is no pending frame, frame was presented and consumed
+	});
+	print_line("wait_done: " + itos(frame_number));
 }
 
 void OS::add_frame_delay(bool p_can_draw) {

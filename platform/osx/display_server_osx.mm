@@ -439,6 +439,7 @@ static NSCursor *_cursorFromSelector(SEL selector, SEL fallback = nil) {
 		wd.rect_changed_callback.call((const Variant **)&sizep, 1, ret, ce);
 	}
 
+	/*
 	if (OS_OSX::get_singleton()->get_main_loop()) {
 		Main::force_redraw();
 		//Event retrieval blocks until resize is over. Call Main::iteration() directly.
@@ -446,6 +447,7 @@ static NSCursor *_cursorFromSelector(SEL selector, SEL fallback = nil) {
 			Main::iteration();
 		}
 	}
+	*/
 }
 
 - (void)windowDidMove:(NSNotification *)notification {

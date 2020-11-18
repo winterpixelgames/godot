@@ -1154,6 +1154,7 @@ void VulkanContext::append_command_buffer(const VkCommandBuffer &pCommandBuffer)
 }
 
 void VulkanContext::flush(bool p_flush_setup, bool p_flush_pending) {
+	print_line("VulkanContext::flush");
 	// ensure everything else pending is executed
 	vkDeviceWaitIdle(device);
 
@@ -1209,14 +1210,235 @@ void VulkanContext::render_loop() {
 			work = render_work_queue.at(0);
 			render_work_queue.erase(render_work_queue.begin());
 		}
-		
+		ZoneScopedNC("GPU Submit frame", tracy::Color::Salmon1);
+		std::string frame_label = std::string("GPU Submit frame: ") + std::to_string(work.total_frame_number);
+		ZoneName(frame_label.c_str(), frame_label.size());
+
+		//Existing work
+		//	print_line("swapbuffers?");
+		VkResult err;
+
+	#if 0
+		if (VK_GOOGLE_display_timing_enabled) {
+			// Look at what happened to previous presents, and make appropriate
+			// adjustments in timing:
+			DemoUpdateTargetIPD(demo);
+
+			// Note: a real application would position its geometry to that it's in
+			// the correct locatoin for when the next image is presented.  It might
+			// also wait, so that there's less latency between any input and when
+			// the next image is rendered/presented.  This demo program is so
+			// simple that it doesn't do either of those.
+		}
+	#endif
+		// Wait for the image acquired semaphore to be signaled to ensure
+		// that the image won't be rendered to until the presentation
+		// engine has fully released ownership to the application, and it is
+		// okay to render to the image.
+		/*
+		const VkCommandBuffer *commands_ptr = nullptr;
+		uint32_t commands_to_submit = 0;
+
+		if (command_buffer_queue[0] == nullptr) {
+			//no setup command, but commands to submit, submit from the first and skip command
+			if (command_buffer_count > 1) {
+				commands_ptr = command_buffer_queue.ptr() + 1;
+				commands_to_submit = command_buffer_count - 1;
+			}
+		} else {
+			commands_ptr = command_buffer_queue.ptr();
+			commands_to_submit = command_buffer_count;
+		}*/
+
+		VkPipelineStageFlags pipe_stage_flags;
+		VkSubmitInfo submit_info;
+		submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submit_info.pNext = nullptr;
+		submit_info.pWaitDstStageMask = &pipe_stage_flags;
+		pipe_stage_flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		//submit_info.waitSemaphoreCount = 1;
+		//submit_info.pWaitSemaphores = &image_acquired_semaphores[work.render_image_index];
+		submit_info.waitSemaphoreCount = 0;
+		//submit_info.pWaitSemaphores = &image_acquired_semaphores[0];
+		submit_info.commandBufferCount = work.command_buffers.size();
+		submit_info.pCommandBuffers = work.command_buffers.data();
+		submit_info.signalSemaphoreCount = 1;
+		submit_info.pSignalSemaphores = &draw_complete_semaphores[work.queue_frame_index];
+		{
+			ZoneScopedNC("vkQueueSubmit", tracy::Color::Salmon2);
+			err = vkQueueSubmit(graphics_queue, 1, &submit_info, fences[work.queue_frame_index]);
+		}
+		//ERR_FAIL_COND_V(err, ERR_CANT_CREATE); // TODO figure out
+
+		if (separate_present_queue) {
+			// If we are using separate queues, change image ownership to the
+			// present queue before presenting, waiting for the draw complete
+			// semaphore and signalling the ownership released semaphore when finished
+			VkFence nullFence = VK_NULL_HANDLE;
+			pipe_stage_flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			submit_info.waitSemaphoreCount = 1;
+			submit_info.pWaitSemaphores = &draw_complete_semaphores[frame_index];
+			submit_info.commandBufferCount = 0;
+
+			VkCommandBuffer *cmdbufptr = (VkCommandBuffer *)alloca(sizeof(VkCommandBuffer *) * windows.size());
+			submit_info.pCommandBuffers = cmdbufptr;
+
+			for (Map<int, Window>::Element *E = windows.front(); E; E = E->next()) {
+				Window *w = &E->get();
+
+				if (w->swapchain == VK_NULL_HANDLE) {
+					continue;
+				}
+				cmdbufptr[submit_info.commandBufferCount] = w->swapchain_image_resources[w->current_buffer].graphics_to_present_cmd;
+				submit_info.commandBufferCount++;
+			}
+
+			submit_info.signalSemaphoreCount = 1;
+			submit_info.pSignalSemaphores = &image_ownership_semaphores[frame_index];
+			{
+				ZoneScopedNC("vkQueueSubmit separate_present_queue", tracy::Color::Salmon2);
+				err = vkQueueSubmit(present_queue, 1, &submit_info, nullFence);
+			}
+			//ERR_FAIL_COND_V(err, ERR_CANT_CREATE); // TODO figure out
+		}
+
+		// If we are using separate queues we have to wait for image ownership,
+		// otherwise wait for draw complete
+		VkPresentInfoKHR present = {
+			/*sType*/ VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+			/*pNext*/ nullptr,
+			/*waitSemaphoreCount*/ 1,
+			/*pWaitSemaphores*/ (separate_present_queue) ? &image_ownership_semaphores[work.render_image_index] : &draw_complete_semaphores[work.queue_frame_index],
+			/*swapchainCount*/ 0,
+			/*pSwapchain*/ nullptr,
+			/*pImageIndices*/ nullptr,
+			/*pResults*/ nullptr,
+		};
+
+		VkSwapchainKHR *pSwapchains = (VkSwapchainKHR *)alloca(sizeof(VkSwapchainKHR *) * windows.size());
+		uint32_t *pImageIndices = (uint32_t *)alloca(sizeof(uint32_t *) * windows.size());
+
+		present.pSwapchains = pSwapchains;
+		present.pImageIndices = pImageIndices;
+
+		for (Map<int, Window>::Element *E = windows.front(); E; E = E->next()) {
+			Window *w = &E->get();
+
+			if (w->swapchain == VK_NULL_HANDLE) {
+				continue;
+			}
+			pSwapchains[present.swapchainCount] = w->swapchain;
+			pImageIndices[present.swapchainCount] = work.render_image_index;
+			present.swapchainCount++;
+		}
+
+	#if 0
+		if (VK_KHR_incremental_present_enabled) {
+			// If using VK_KHR_incremental_present, we provide a hint of the region
+			// that contains changed content relative to the previously-presented
+			// image.  The implementation can use this hint in order to save
+			// work/power (by only copying the region in the hint).  The
+			// implementation is free to ignore the hint though, and so we must
+			// ensure that the entire image has the correctly-drawn content.
+			uint32_t eighthOfWidth = width / 8;
+			uint32_t eighthOfHeight = height / 8;
+			VkRectLayerKHR rect = {
+				/*offset.x*/ eighthOfWidth,
+				/*offset.y*/ eighthOfHeight,
+				/*extent.width*/ eighthOfWidth * 6,
+				/*extent.height*/ eighthOfHeight * 6,
+				/*layer*/ 0,
+			};
+			VkPresentRegionKHR region = {
+				/*rectangleCount*/ 1,
+				/*pRectangles*/ &rect,
+			};
+			VkPresentRegionsKHR regions = {
+				/*sType*/ VK_STRUCTURE_TYPE_PRESENT_REGIONS_KHR,
+				/*pNext*/ present.pNext,
+				/*swapchainCount*/ present.swapchainCount,
+				/*pRegions*/ &region,
+			};
+			present.pNext = &regions;
+		}
+	#endif
+
+	#if 0
+		if (VK_GOOGLE_display_timing_enabled) {
+			VkPresentTimeGOOGLE ptime;
+			if (prev_desired_present_time == 0) {
+				// This must be the first present for this swapchain.
+				//
+				// We don't know where we are relative to the presentation engine's
+				// display's refresh cycle.  We also don't know how long rendering
+				// takes.  Let's make a grossly-simplified assumption that the
+				// desiredPresentTime should be half way between now and
+				// now+target_IPD.  We will adjust over time.
+				uint64_t curtime = getTimeInNanoseconds();
+				if (curtime == 0) {
+					// Since we didn't find out the current time, don't give a
+					// desiredPresentTime:
+					ptime.desiredPresentTime = 0;
+				} else {
+					ptime.desiredPresentTime = curtime + (target_IPD >> 1);
+				}
+			} else {
+				ptime.desiredPresentTime = (prev_desired_present_time + target_IPD);
+			}
+			ptime.presentID = next_present_id++;
+			prev_desired_present_time = ptime.desiredPresentTime;
+
+			VkPresentTimesInfoGOOGLE present_time = {
+				/*sType*/ VK_STRUCTURE_TYPE_PRESENT_TIMES_INFO_GOOGLE,
+				/*pNext*/ present.pNext,
+				/*swapchainCount*/ present.swapchainCount,
+				/*pTimes*/ &ptime,
+			};
+			if (VK_GOOGLE_display_timing_enabled) {
+				present.pNext = &present_time;
+			}
+		}
+	#endif
+
+		OS::get_singleton()->present_frame(work.total_frame_number, [&]{
+			ZoneScopedNC("vkQueuePresentKHR", tracy::Color::Salmon2);
+			err = fpQueuePresentKHR(present_queue, &present);
+		});
+		//render_loop_cv.notify_one(); //testing single threaded
 
 
-		render_loop_cv.notify_one(); //testing single threaded
+
+	/*
+		static int total_frames = 0;
+		total_frames++;
+		//	print_line("current buffer:  " + itos(current_buffer));
+		err = fpQueuePresentKHR(present_queue, &present);
+
+		frame_index += 1;
+		frame_index %= FRAME_LAG;
+
+		if (err == VK_ERROR_OUT_OF_DATE_KHR) {
+			// swapchain is out of date (e.g. the window was resized) and
+			// must be recreated:
+			print_line("out of date");
+			resize_notify();
+		} else if (err == VK_SUBOPTIMAL_KHR) {
+			// swapchain is not as optimal as it could be, but the platform's
+			// presentation engine will still present the image correctly.
+			print_line("suboptimal");
+		} else {
+			ERR_FAIL_COND_V(err, ERR_CANT_CREATE);
+		}
+
+		buffers_prepared = false;
+
+	*/
+
 	}
 }
 
 Error VulkanContext::prepare_buffers() {
+	static int total_frames = 0;
 	if (!queues_initialized) {
 		return OK;
 	}
@@ -1224,8 +1446,8 @@ Error VulkanContext::prepare_buffers() {
 	VkResult err;
 
 	// Ensure no more than FRAME_LAG renderings are outstanding
-	vkWaitForFences(device, 1, &fences[frame_index], VK_TRUE, UINT64_MAX);
-	vkResetFences(device, 1, &fences[frame_index]);
+	//vkWaitForFences(device, 1, &fences[frame_index], VK_TRUE, UINT64_MAX);
+	//vkResetFences(device, 1, &fences[frame_index]);
 
 	for (Map<int, Window>::Element *E = windows.front(); E; E = E->next()) {
 		Window *w = &E->get();
@@ -1237,9 +1459,16 @@ Error VulkanContext::prepare_buffers() {
 		do {
 			// Get the index of the next available swapchain image:
 			err =
+			//		fpAcquireNextImageKHR(device, w->swapchain, UINT64_MAX,
+			//				image_acquired_semaphores[frame_index], VK_NULL_HANDLE, &w->current_buffer);
 					fpAcquireNextImageKHR(device, w->swapchain, UINT64_MAX,
-							image_acquired_semaphores[frame_index], VK_NULL_HANDLE, &w->current_buffer);
+						VK_NULL_HANDLE, VK_NULL_HANDLE, &w->current_buffer);
 			print_line("aquired vulkan vkSwapchainImage: " + itos(w->current_buffer));
+			//static int last_image = 0;
+			//if(w->current_buffer == last_image-1) {
+			//	print_line("bad/invalid vulkan vkSwapchainImage");
+			//}
+			//last_image = w->current_buffer;
 
 			if (err == VK_ERROR_OUT_OF_DATE_KHR) {
 				// swapchain is out of date (e.g. the window was resized) and
@@ -1264,6 +1493,7 @@ Error VulkanContext::prepare_buffers() {
 }
 
 Error VulkanContext::swap_buffers() {
+	static int total_frames = 0;
 	if (!queues_initialized) {
 		return OK;
 	}
@@ -1274,7 +1504,6 @@ Error VulkanContext::swap_buffers() {
 	}
 
 	// support 1 window only for now...
-	int queue_frame_index = frame_index;
 	int window_image_index = 0;
 	for (Map<int, Window>::Element *E = windows.front(); E; E = E->next()) {
 		Window *w = &E->get();
@@ -1286,9 +1515,9 @@ Error VulkanContext::swap_buffers() {
 	}
 
 	// Submit work to the GPU
-	/*
 	render_loop_mutex.lock();
 	GPUSubmissionWork work;
+	work.total_frame_number = total_frames;
 	work.queue_frame_index = frame_index;
 	work.render_image_index = window_image_index;
 	work.command_buffers = std::vector<VkCommandBuffer>();
@@ -1301,220 +1530,25 @@ Error VulkanContext::swap_buffers() {
 	command_buffer_queue.write[0] = nullptr;
 	command_buffer_count = 1;
 
+	// Signal we put a pending frame
+	OS::get_singleton()->push_pending_frame(work.total_frame_number);
 	render_work_queue.push_back(work);
 	render_loop_mutex.unlock();
 	render_loop_cv.notify_one(); // notify render thread work is ready
 
-	// before we return we DO have to wait for frame-1 drawing to complete
-	// rendering_device_vulkan will IMMEDIATELY start a vkBeginCommandBuffer
-	{
-		std::unique_lock<std::mutex> lk(render_loop_mutex);
-		render_loop_cv.wait(lk, [this]{ return render_index_queue.size() == 0; });
-	}*/
+	// wait for presentation of previous frame-1, 
+	OS::get_singleton()->wait_until_frame_consumed(work.total_frame_number-1);
 
-
-
-	//	print_line("swapbuffers?");
-	VkResult err;
-
-#if 0
-	if (VK_GOOGLE_display_timing_enabled) {
-		// Look at what happened to previous presents, and make appropriate
-		// adjustments in timing:
-		DemoUpdateTargetIPD(demo);
-
-		// Note: a real application would position its geometry to that it's in
-		// the correct locatoin for when the next image is presented.  It might
-		// also wait, so that there's less latency between any input and when
-		// the next image is rendered/presented.  This demo program is so
-		// simple that it doesn't do either of those.
-	}
-#endif
-	// Wait for the image acquired semaphore to be signaled to ensure
-	// that the image won't be rendered to until the presentation
-	// engine has fully released ownership to the application, and it is
-	// okay to render to the image.
-
-	const VkCommandBuffer *commands_ptr = nullptr;
-	uint32_t commands_to_submit = 0;
-
-	if (command_buffer_queue[0] == nullptr) {
-		//no setup command, but commands to submit, submit from the first and skip command
-		if (command_buffer_count > 1) {
-			commands_ptr = command_buffer_queue.ptr() + 1;
-			commands_to_submit = command_buffer_count - 1;
-		}
-	} else {
-		commands_ptr = command_buffer_queue.ptr();
-		commands_to_submit = command_buffer_count;
-	}
-
-	VkPipelineStageFlags pipe_stage_flags;
-	VkSubmitInfo submit_info;
-	submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submit_info.pNext = nullptr;
-	submit_info.pWaitDstStageMask = &pipe_stage_flags;
-	pipe_stage_flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	submit_info.waitSemaphoreCount = 1;
-	submit_info.pWaitSemaphores = &image_acquired_semaphores[frame_index];
-	submit_info.commandBufferCount = commands_to_submit;
-	submit_info.pCommandBuffers = commands_ptr;
-	submit_info.signalSemaphoreCount = 1;
-	submit_info.pSignalSemaphores = &draw_complete_semaphores[frame_index];
-	err = vkQueueSubmit(graphics_queue, 1, &submit_info, fences[frame_index]);
-	ERR_FAIL_COND_V(err, ERR_CANT_CREATE);
-
-	command_buffer_queue.write[0] = nullptr;
-	command_buffer_count = 1;
-
-	if (separate_present_queue) {
-		// If we are using separate queues, change image ownership to the
-		// present queue before presenting, waiting for the draw complete
-		// semaphore and signalling the ownership released semaphore when finished
-		VkFence nullFence = VK_NULL_HANDLE;
-		pipe_stage_flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		submit_info.waitSemaphoreCount = 1;
-		submit_info.pWaitSemaphores = &draw_complete_semaphores[frame_index];
-		submit_info.commandBufferCount = 0;
-
-		VkCommandBuffer *cmdbufptr = (VkCommandBuffer *)alloca(sizeof(VkCommandBuffer *) * windows.size());
-		submit_info.pCommandBuffers = cmdbufptr;
-
-		for (Map<int, Window>::Element *E = windows.front(); E; E = E->next()) {
-			Window *w = &E->get();
-
-			if (w->swapchain == VK_NULL_HANDLE) {
-				continue;
-			}
-			cmdbufptr[submit_info.commandBufferCount] = w->swapchain_image_resources[w->current_buffer].graphics_to_present_cmd;
-			submit_info.commandBufferCount++;
-		}
-
-		submit_info.signalSemaphoreCount = 1;
-		submit_info.pSignalSemaphores = &image_ownership_semaphores[frame_index];
-		err = vkQueueSubmit(present_queue, 1, &submit_info, nullFence);
-		ERR_FAIL_COND_V(err, ERR_CANT_CREATE);
-	}
-
-	// If we are using separate queues we have to wait for image ownership,
-	// otherwise wait for draw complete
-	VkPresentInfoKHR present = {
-		/*sType*/ VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-		/*pNext*/ nullptr,
-		/*waitSemaphoreCount*/ 1,
-		/*pWaitSemaphores*/ (separate_present_queue) ? &image_ownership_semaphores[frame_index] : &draw_complete_semaphores[frame_index],
-		/*swapchainCount*/ 0,
-		/*pSwapchain*/ nullptr,
-		/*pImageIndices*/ nullptr,
-		/*pResults*/ nullptr,
-	};
-
-	VkSwapchainKHR *pSwapchains = (VkSwapchainKHR *)alloca(sizeof(VkSwapchainKHR *) * windows.size());
-	uint32_t *pImageIndices = (uint32_t *)alloca(sizeof(uint32_t *) * windows.size());
-
-	present.pSwapchains = pSwapchains;
-	present.pImageIndices = pImageIndices;
-
-	for (Map<int, Window>::Element *E = windows.front(); E; E = E->next()) {
-		Window *w = &E->get();
-
-		if (w->swapchain == VK_NULL_HANDLE) {
-			continue;
-		}
-		pSwapchains[present.swapchainCount] = w->swapchain;
-		pImageIndices[present.swapchainCount] = w->current_buffer;
-		present.swapchainCount++;
-	}
-
-#if 0
-	if (VK_KHR_incremental_present_enabled) {
-		// If using VK_KHR_incremental_present, we provide a hint of the region
-		// that contains changed content relative to the previously-presented
-		// image.  The implementation can use this hint in order to save
-		// work/power (by only copying the region in the hint).  The
-		// implementation is free to ignore the hint though, and so we must
-		// ensure that the entire image has the correctly-drawn content.
-		uint32_t eighthOfWidth = width / 8;
-		uint32_t eighthOfHeight = height / 8;
-		VkRectLayerKHR rect = {
-			/*offset.x*/ eighthOfWidth,
-			/*offset.y*/ eighthOfHeight,
-			/*extent.width*/ eighthOfWidth * 6,
-			/*extent.height*/ eighthOfHeight * 6,
-			/*layer*/ 0,
-		};
-		VkPresentRegionKHR region = {
-			/*rectangleCount*/ 1,
-			/*pRectangles*/ &rect,
-		};
-		VkPresentRegionsKHR regions = {
-			/*sType*/ VK_STRUCTURE_TYPE_PRESENT_REGIONS_KHR,
-			/*pNext*/ present.pNext,
-			/*swapchainCount*/ present.swapchainCount,
-			/*pRegions*/ &region,
-		};
-		present.pNext = &regions;
-	}
-#endif
-
-#if 0
-	if (VK_GOOGLE_display_timing_enabled) {
-		VkPresentTimeGOOGLE ptime;
-		if (prev_desired_present_time == 0) {
-			// This must be the first present for this swapchain.
-			//
-			// We don't know where we are relative to the presentation engine's
-			// display's refresh cycle.  We also don't know how long rendering
-			// takes.  Let's make a grossly-simplified assumption that the
-			// desiredPresentTime should be half way between now and
-			// now+target_IPD.  We will adjust over time.
-			uint64_t curtime = getTimeInNanoseconds();
-			if (curtime == 0) {
-				// Since we didn't find out the current time, don't give a
-				// desiredPresentTime:
-				ptime.desiredPresentTime = 0;
-			} else {
-				ptime.desiredPresentTime = curtime + (target_IPD >> 1);
-			}
-		} else {
-			ptime.desiredPresentTime = (prev_desired_present_time + target_IPD);
-		}
-		ptime.presentID = next_present_id++;
-		prev_desired_present_time = ptime.desiredPresentTime;
-
-		VkPresentTimesInfoGOOGLE present_time = {
-			/*sType*/ VK_STRUCTURE_TYPE_PRESENT_TIMES_INFO_GOOGLE,
-			/*pNext*/ present.pNext,
-			/*swapchainCount*/ present.swapchainCount,
-			/*pTimes*/ &ptime,
-		};
-		if (VK_GOOGLE_display_timing_enabled) {
-			present.pNext = &present_time;
-		}
-	}
-#endif
-	static int total_frames = 0;
 	total_frames++;
-	//	print_line("current buffer:  " + itos(current_buffer));
-	err = fpQueuePresentKHR(present_queue, &present);
-
+	OS::get_singleton()->set_current_frame(total_frames);
 	frame_index += 1;
 	frame_index %= FRAME_LAG;
 
-	if (err == VK_ERROR_OUT_OF_DATE_KHR) {
-		// swapchain is out of date (e.g. the window was resized) and
-		// must be recreated:
-		print_line("out of date");
-		resize_notify();
-	} else if (err == VK_SUBOPTIMAL_KHR) {
-		// swapchain is not as optimal as it could be, but the platform's
-		// presentation engine will still present the image correctly.
-		print_line("suboptimal");
-	} else {
-		ERR_FAIL_COND_V(err, ERR_CANT_CREATE);
-	}
-
 	buffers_prepared = false;
+
+	// we've ticked over to a new frame_index.  Wait for presentation
+	//vkWaitForFences(device, 1, &fences[frame_index], VK_TRUE, UINT64_MAX);
+	//vkResetFences(device, 1, &fences[frame_index]);
 
 	return OK;
 }

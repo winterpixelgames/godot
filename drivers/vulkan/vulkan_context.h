@@ -38,6 +38,11 @@
 #include "core/templates/rid_owner.h"
 #include "servers/display_server.h"
 
+#ifdef __APPLE__
+#include <MoltenVK/vk_mvk_moltenvk.h>
+#include <MoltenVK/mvk_vulkan.h>
+#endif
+
 #include <vulkan/vulkan.h>
 #include <condition_variable>
 #include <mutex>
@@ -49,7 +54,7 @@ class VulkanContext {
 	enum {
 		MAX_EXTENSIONS = 128,
 		MAX_LAYERS = 64,
-		FRAME_LAG = 2
+		FRAME_LAG = 5
 	};
 
 	VkInstance inst;
@@ -121,6 +126,7 @@ class VulkanContext {
 
 	// Multithreaded GPU work submission
 	struct GPUSubmissionWork {
+		int total_frame_number;
 		int queue_frame_index;
 		int render_image_index;
 		std::vector<VkCommandBuffer> command_buffers;
@@ -138,6 +144,7 @@ class VulkanContext {
 
 	bool VK_KHR_incremental_present_enabled = true;
 	bool VK_GOOGLE_display_timing_enabled = true;
+	bool VK_MVK_moltenvk = true;
 	uint32_t enabled_extension_count = 0;
 	const char *extension_names[MAX_EXTENSIONS];
 

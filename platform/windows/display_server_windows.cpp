@@ -2627,7 +2627,7 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 			if (wParam == move_timer_id) {
 				_process_key_events();
 				if (!Main::is_iterating()) {
-					Main::iteration();
+					Main::iteration(true);
 				}
 			}
 		} break;

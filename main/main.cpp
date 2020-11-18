@@ -2352,8 +2352,8 @@ bool Main::is_iterating() {
 static uint64_t physics_process_max = 0;
 static uint64_t idle_process_max = 0;
 
-bool Main::iteration() {
-	ZoneScopedNC("Main::iteration", tracy::Color::SeaGreen1)
+bool Main::iteration(bool p_skip_draw) {
+	
 	FrameMarkNamed("GodotFrame")
 	tracy::SetThreadName("MainThread");
 	//for now do not error on this
@@ -2396,7 +2396,9 @@ bool Main::iteration() {
 	bool exit = false;
 
 	{
-		ZoneScopedNC("Main::iteration - physics", tracy::Color::SeaGreen1)
+		ZoneScopedNC("Physics", tracy::Color::SeaGreen1)
+		std::string frame_label = std::string("Physics frame: ") + std::to_string(OS::get_singleton()->get_current_frame());
+		ZoneName(frame_label.c_str(), frame_label.size());
 		Engine::get_singleton()->_in_physics = true;
 
 		for (int iters = 0; iters < advance.physics_steps; ++iters) {
@@ -2436,26 +2438,30 @@ bool Main::iteration() {
 	uint64_t idle_begin = OS::get_singleton()->get_ticks_usec();
 
 	{
-		ZoneScopedNC("Main::iteration - message_queue->flush", tracy::Color::SeaGreen1)
+		ZoneScopedNC("Process", tracy::Color::SeaGreen1)
+		std::string frame_label = std::string("Process frame: ") + std::to_string(OS::get_singleton()->get_current_frame());
+		ZoneName(frame_label.c_str(), frame_label.size());
 		if (OS::get_singleton()->get_main_loop()->idle(step * time_scale)) {
 			exit = true;
 		}
 		message_queue->flush();
 	}
 
-	RenderingServer::get_singleton()->sync(); //sync if still drawing from previous frames.
+	if(!p_skip_draw) {
+		RenderingServer::get_singleton()->sync(); //sync if still drawing from previous frames.
 
-	if (DisplayServer::get_singleton()->can_any_window_draw() &&
-			RenderingServer::get_singleton()->is_render_loop_enabled()) {
-		if ((!force_redraw_requested) && OS::get_singleton()->is_in_low_processor_usage_mode()) {
-			if (RenderingServer::get_singleton()->has_changed()) {
+		if (DisplayServer::get_singleton()->can_any_window_draw() &&
+				RenderingServer::get_singleton()->is_render_loop_enabled()) {
+			if ((!force_redraw_requested) && OS::get_singleton()->is_in_low_processor_usage_mode()) {
+				if (RenderingServer::get_singleton()->has_changed()) {
+					RenderingServer::get_singleton()->draw(true, scaled_step); // flush visual commands
+					Engine::get_singleton()->frames_drawn++;
+				}
+			} else {
 				RenderingServer::get_singleton()->draw(true, scaled_step); // flush visual commands
 				Engine::get_singleton()->frames_drawn++;
+				force_redraw_requested = false;
 			}
-		} else {
-			RenderingServer::get_singleton()->draw(true, scaled_step); // flush visual commands
-			Engine::get_singleton()->frames_drawn++;
-			force_redraw_requested = false;
 		}
 	}
 

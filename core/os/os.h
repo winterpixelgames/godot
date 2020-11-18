@@ -40,10 +40,14 @@
 #include "core/templates/vector.h"
 
 #include <stdarg.h>
+#include <mutex>
+#include <condition_variable>
+#include <vector>
 
 class OS {
 	static OS *singleton;
 	static uint64_t target_ticks;
+	int64_t current_frame_number = 0;
 	String _execpath;
 	List<String> _cmdline;
 	bool _keep_screen_on = true; // set default value to true, because this had been true before godot 2.0.
@@ -75,6 +79,21 @@ protected:
 public:
 	typedef void (*ImeCallback)(void *p_inp, String p_text, Point2 p_selection);
 	typedef bool (*HasServerFeatureCallback)(const String &p_feature);
+
+
+	
+	// VSync Drivers
+private:
+	std::mutex presentation_frame_mutex{};
+	std::vector<int64_t> frames_pending{};
+	std::vector<int64_t> frames_presented{};
+	std::condition_variable presentation_cv{};
+public:
+	void push_pending_frame(int64_t frame_number);
+	void present_frame(int64_t frame_number, const std::function<void()>& present_func); // locks and executes func
+	void consume_next_frame(const std::function<void()>& present_func); // locks and executes func
+	void wait_until_frame_consumed(int64_t frame_number); // blocks if frame has been submitted, and not consumed yet
+
 
 	enum RenderThreadMode {
 
@@ -115,6 +134,9 @@ public:
 	void print_error(const char *p_function, const char *p_file, int p_line, const char *p_code, const char *p_rationale, Logger::ErrorType p_type = Logger::ERR_ERROR);
 	void print(const char *p_format, ...) _PRINTF_FORMAT_ATTRIBUTE_2_3;
 	void printerr(const char *p_format, ...) _PRINTF_FORMAT_ATTRIBUTE_2_3;
+
+	int64_t get_current_frame() const { return current_frame_number; }
+	void set_current_frame(int64_t p_current_frame) { current_frame_number = p_current_frame; }
 
 	virtual String get_stdin_string(bool p_block = true) = 0;
 

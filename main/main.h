@@ -54,7 +54,7 @@ public:
 #endif
 	static bool start();
 
-	static bool iteration();
+	static bool iteration(bool p_skip_draw=false);
 	static void force_redraw();
 
 	static bool is_iterating();

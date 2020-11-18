@@ -58,13 +58,8 @@ uint64_t last_display_tick = 0;
 
 CVReturn displayCallback(CVDisplayLinkRef displayLink, const CVTimeStamp *inNow, const CVTimeStamp *inOutputTime, CVOptionFlags flagsIn, CVOptionFlags *flagsOut, void *displayLinkContext) {
 	using namespace tracy;
-	// Called back in macOS / iOS helper Thread
-	//FrameMarkNamed("VSYNC")
-	//std::lock_guard<std::mutex> guard(swap_mutex);
-	//uint64_t previous_time = swap_last_frame_time;
+	
 	uint64_t display_time = inOutputTime->hostTime;
-	// Custom Tracy logic:
-	//if( !VSYNC ) GetProfiler().m_frameCount.fetch_add( 1, std::memory_order_relaxed );
 
 	if(tracy_first_tick == 0) {
 		tracy_first_tick = tracy::Profiler::GetTime();
@@ -72,7 +67,6 @@ CVReturn displayCallback(CVDisplayLinkRef displayLink, const CVTimeStamp *inNow,
 	}
 	else {
 		uint64_t delta = (display_time - last_display_tick);
-		//int64_t tracy_delta = tracy::Profiler::GetTime() - tracy_first_tick;
 		last_display_tick = display_time;
 		display_tick_acc += delta;
 	}
@@ -81,15 +75,10 @@ CVReturn displayCallback(CVDisplayLinkRef displayLink, const CVTimeStamp *inNow,
 	#endif
     tracy::TracyLfqPrepare( tracy::QueueType::FrameMarkMsg );
     MemWrite( &item->frameMark.time, tracy_first_tick + display_tick_acc );
-	//MemWrite( &item->frameMark.time,tracy::Profiler::GetTime());
     MemWrite( &item->frameMark.name, uint64_t( VSYNC ) );
     TracyLfqCommit;
 
-	//int64_t difference = display_time - previous_time;
-	//float delta = difference/1000000.0f;
-	//OS::last_frame_timestamp = display_time;
-	//swap_last_frame_time = display_time;
-	//swap_cv.notify_one();
+	OS::get_singleton()->consume_next_frame([]{});
 	return kCVReturnSuccess;
 }
 
@@ -379,7 +368,7 @@ void OS_OSX::run() {
 		@try {
 			{	
 				{
-					ZoneScopedNC("OS::run - process input", tracy::Color::SeaGreen1)
+					ZoneScopedNC("Process Input", tracy::Color::SeaGreen1)
 					if (DisplayServer::get_singleton()) {
 						DisplayServer::get_singleton()->process_events(); // get rid of pending events
 					}

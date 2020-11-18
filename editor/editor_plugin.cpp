@@ -125,8 +125,8 @@ Vector<Ref<Texture2D>> EditorInterface::make_mesh_previews(const Vector<Ref<Mesh
 		RS::get_singleton()->instance_set_transform(light_instance2, xform * Transform().looking_at(Vector3(+1, -1, -2), Vector3(0, 1, 0)));
 
 		ep.step(TTR("Thumbnail..."), i);
-		Main::iteration();
-		Main::iteration();
+		Main::iteration(true);
+		Main::iteration(true);
 		Ref<Image> img = RS::get_singleton()->texture_2d_get(viewport_texture);
 		ERR_CONTINUE(!img.is_valid() || img->empty());
 		Ref<ImageTexture> it(memnew(ImageTexture));

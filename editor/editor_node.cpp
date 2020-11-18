@@ -5487,7 +5487,7 @@ int EditorNode::execute_and_show_output(const String &p_title, const String &p_p
 				String to_add = eta.output.substr(prev_len, eta.output.length());
 				prev_len = eta.output.length();
 				execute_outputs->add_text(to_add);
-				Main::iteration();
+				Main::iteration(true);
 			}
 		}
 		OS::get_singleton()->delay_usec(1000);
