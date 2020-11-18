@@ -165,6 +165,7 @@ opts.Add(BoolVariable("builtin_vulkan", "Use the built-in Vulkan loader library 
 opts.Add(BoolVariable("builtin_xatlas", "Use the built-in xatlas library", True))
 opts.Add(BoolVariable("builtin_zlib", "Use the built-in zlib library", True))
 opts.Add(BoolVariable("builtin_zstd", "Use the built-in Zstd library", True))
+opts.Add(BoolVariable("builtin_moltenvk", "Use the built-in moltenvk library", False))
 
 # Compilation environment setup
 opts.Add("CXX", "C++ compiler")

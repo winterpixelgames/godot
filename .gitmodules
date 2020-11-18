@@ -2,3 +2,7 @@
 	path = thirdparty/tracy
 	url = git@github.com:winterpixelgames/tracy.git
 	branch = mach_absolute_time_on_apple
+[submodule "thirdparty/MoltenVK"]
+	path = thirdparty/MoltenVK
+	url = git@github.com:winterpixelgames/MoltenVK.git
+	branch = master

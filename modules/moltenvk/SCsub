@@ -1,0 +1,19 @@
+#!/usr/bin/env python
+
+Import("env")
+Import("env_modules")
+
+env_moltenvk = env_modules.Clone()
+
+# Thirdparty source files
+
+if env["builtin_moltenvk"]:
+    pass
+    #current_path = Dir('#').abspath
+    #print("Using builtin_moltenvk")
+    #moltenvk_dir = current_path + "/thirdparty/MoltenVK"
+    #xcode_project = moltenvk_dir + "/MoltenVK/MoltenVK.xcodeproj"
+    #call("/usr/bin/xcodebuild build -quiet -project " + xcode_project + " -scheme \"MoltenVK-macOS\" -configuration \"Debug\"")
+
+env_moltenvk.add_source_files(env.modules_sources, "*.cpp")
+

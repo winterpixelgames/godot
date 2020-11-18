@@ -243,6 +243,7 @@ Error VulkanContext::_initialize_extensions() {
 				extension_names[enabled_extension_count++] = VK_KHR_SURFACE_EXTENSION_NAME;
 			}
 
+
 			if (!strcmp(_get_platform_surface_extension(), instance_extensions[i].extensionName)) {
 				platformSurfaceExtFound = 1;
 				extension_names[enabled_extension_count++] = _get_platform_surface_extension();
@@ -365,6 +366,7 @@ Error VulkanContext::_create_physical_device() {
 	/* for now, just grab the first physical device */
 	gpu = physical_devices[0];
 	free(physical_devices);
+
 
 	/* Look for device extensions */
 	uint32_t device_extension_count = 0;

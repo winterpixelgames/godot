@@ -37,7 +37,7 @@ elif env["platform"] == "iphone":
 elif env["builtin_vulkan"]:
     # Use bundled Vulkan headers
     thirdparty_dir = "#thirdparty/vulkan"
-    env.Prepend(CPPPATH=[thirdparty_dir, thirdparty_dir + "/include", thirdparty_dir + "/loader", "/Users/jordanschidlowsky/vulkansdk-macos-1.2.154.0/MoltenVK/include"])
+    env.Prepend(CPPPATH=[thirdparty_dir, thirdparty_dir + "/loader", thirdparty_dir+"/../MoltenVK/MoltenVK/include"])
 
     # Build Vulkan loader library
     env_thirdparty = env.Clone()
