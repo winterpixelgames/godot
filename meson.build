@@ -1,6 +1,6 @@
 project(
     'godot',
-    ['cpp', 'c'],
+    ['cpp', 'c', 'objc', 'objcpp'],
     version: '4.0.0',
     license: 'MIT',
     meson_version: '>= 0.56',
@@ -50,6 +50,11 @@ if PLATFORM == 'windows'
         '-D_WIN32_WINNT=' + get_option('windows_version'),
         language: ['c', 'cpp']
     )
+endif
+
+if PLATFORM == 'osx'
+    add_languages('objc') # again not sure why this explicitly required
+    add_languages('objcpp')
 endif
 
 if get_option('tools') and not IS_DEBUG_BUILD # get_option('debug') - TODO change when ZI issue fixed
@@ -154,6 +159,11 @@ MODULE_BUILD_PATHS = _module_get_build_paths.stdout().strip().split(',')
 _cpp_compiler_id = meson.get_compiler('cpp').get_id()
 
 CPP_ARGS = []
+OBJCPP_ARGS =[]
+
+if PLATFORM == 'osx'
+    OBJCPP_ARGS += ['-ObjC++', '-std=c++17'] # why have to explicitly do this?
+endif
 
 if get_option('use_lto')
     # Cant use GL and LTGC when ZI is forced by meson debug builds
@@ -276,7 +286,7 @@ subdir('editor')
 # generate our splashes
 subdir('splash')
 
-_godot_all = library('godot_all', SOURCES + HEADERS, include_directories: INCDIRS, dependencies: DEPENDENCIES, cpp_args: CPP_ARGS, link_args: LINK_ARGS)
+_godot_all = library('godot_all', SOURCES + HEADERS, include_directories: INCDIRS, dependencies: DEPENDENCIES, cpp_args: CPP_ARGS, objcpp_args:OBJCPP_ARGS, link_args: LINK_ARGS)
 
 DEP_GODOT_ALL = declare_dependency(link_with: _godot_all, include_directories: INCDIRS, compile_args: CPP_ARGS, link_args: LINK_ARGS)
 
@@ -290,4 +300,4 @@ endforeach
 subdir('main')
 
 # assemble our exe
-EXEC_GODOT = executable('godot', MAIN_SOURCES, dependencies: [DEP_GODOT_ALL, MODULE_DEPENDENCIES, DEPENDENCIES])
+EXEC_GODOT = executable('godot', MAIN_SOURCES, dependencies: [DEP_GODOT_ALL, MODULE_DEPENDENCIES, DEPENDENCIES], cpp_args: CPP_ARGS, objcpp_args:OBJCPP_ARGS)

@@ -1,4 +1,6 @@
-CPP_ARGS += ['-DHAVE_MNTENT']
+if PLATFORM != 'osx'
+   CPP_ARGS += ['-DHAVE_MNTENT']
+endif
 
 SOURCES += files([
     'dir_access_unix.cpp',
