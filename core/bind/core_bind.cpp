@@ -720,6 +720,16 @@ uint64_t _OS::get_dynamic_memory_usage() const {
 	return OS::get_singleton()->get_dynamic_memory_usage();
 }
 
+uint64_t _OS::get_alloc_count_per_frame() const {
+
+	return OS::get_singleton()->get_alloc_count_per_frame();
+}
+
+float _OS::get_memory_time_per_frame() const {
+
+	return OS::get_singleton()->get_memory_time_per_frame();
+}
+
 void _OS::set_native_icon(const String &p_filename) {
 
 	OS::get_singleton()->set_native_icon(p_filename);
@@ -1409,6 +1419,8 @@ void _OS::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_static_memory_usage"), &_OS::get_static_memory_usage);
 	ClassDB::bind_method(D_METHOD("get_static_memory_peak_usage"), &_OS::get_static_memory_peak_usage);
 	ClassDB::bind_method(D_METHOD("get_dynamic_memory_usage"), &_OS::get_dynamic_memory_usage);
+	ClassDB::bind_method(D_METHOD("get_alloc_count_per_frame"), &_OS::get_alloc_count_per_frame);
+	ClassDB::bind_method(D_METHOD("get_memory_time_per_frame"), &_OS::get_memory_time_per_frame);
 
 	ClassDB::bind_method(D_METHOD("get_user_data_dir"), &_OS::get_user_data_dir);
 	ClassDB::bind_method(D_METHOD("get_system_dir", "dir"), &_OS::get_system_dir);

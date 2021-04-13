@@ -33,6 +33,7 @@
 #include "core/error_macros.h"
 #include "core/os/copymem.h"
 #include "core/safe_refcount.h"
+#include "os.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,21 +70,27 @@ SafeNumeric<uint64_t> Memory::mem_usage;
 SafeNumeric<uint64_t> Memory::max_usage;
 #endif
 
-SafeNumeric<uint64_t> Memory::alloc_count;
+uint64_t Memory::prev_frame_alloc_count = 0;
+uint64_t Memory::frame_alloc_count = 0;
+
+#ifdef DEBUG_ENABLED
+double Memory::frame_memory_time = 0.0f;
+double Memory::prev_frame_memory_time = 0.0f;
+#endif
 
 void *Memory::alloc_static(size_t p_bytes, bool p_pad_align) {
 
 #ifdef DEBUG_ENABLED
+	uint64_t start_ticks = OS::get_singleton() ? OS::get_singleton()->get_ticks_usec() : 0;
 	bool prepad = true;
 #else
 	bool prepad = p_pad_align;
 #endif
 
+	frame_alloc_count++;
 	void *mem = malloc(p_bytes + (prepad ? PAD_ALIGN : 0));
 
 	ERR_FAIL_COND_V(!mem, NULL);
-
-	alloc_count.increment();
 
 	if (prepad) {
 		uint64_t *s = (uint64_t *)mem;
@@ -94,9 +101,16 @@ void *Memory::alloc_static(size_t p_bytes, bool p_pad_align) {
 #ifdef DEBUG_ENABLED
 		uint64_t new_mem_usage = mem_usage.add(p_bytes);
 		max_usage.exchange_if_greater(new_mem_usage);
+
+		uint64_t end_ticks = OS::get_singleton() ? OS::get_singleton()->get_ticks_usec() : 0;
+		frame_memory_time += (end_ticks - start_ticks) / 1000.0f;
 #endif
 		return s8 + PAD_ALIGN;
 	} else {
+#ifdef DEBUG_ENABLED
+		uint64_t end_ticks = OS::get_singleton() ? OS::get_singleton()->get_ticks_usec() : 0;
+		frame_memory_time += (end_ticks - start_ticks) / 1000.0f;
+#endif
 		return mem;
 	}
 }
@@ -111,6 +125,7 @@ void *Memory::realloc_static(void *p_memory, size_t p_bytes, bool p_pad_align) {
 
 #ifdef DEBUG_ENABLED
 	bool prepad = true;
+	uint64_t start_ticks = OS::get_singleton() ? OS::get_singleton()->get_ticks_usec() : 0;
 #else
 	bool prepad = p_pad_align;
 #endif
@@ -130,25 +145,37 @@ void *Memory::realloc_static(void *p_memory, size_t p_bytes, bool p_pad_align) {
 
 		if (p_bytes == 0) {
 			free(mem);
+#ifdef DEBUG_ENABLED
+			uint64_t end_ticks = OS::get_singleton() ? OS::get_singleton()->get_ticks_usec() : 0;
+			frame_memory_time += (end_ticks - start_ticks) / 1000.0f;
+#endif
 			return NULL;
 		} else {
 			*s = p_bytes;
 
+			frame_alloc_count++;
 			mem = (uint8_t *)realloc(mem, p_bytes + PAD_ALIGN);
 			ERR_FAIL_COND_V(!mem, NULL);
 
 			s = (uint64_t *)mem;
 
 			*s = p_bytes;
-
+#ifdef DEBUG_ENABLED
+			uint64_t end_ticks = OS::get_singleton() ? OS::get_singleton()->get_ticks_usec() : 0;
+			frame_memory_time += (end_ticks - start_ticks) / 1000.0f;
+#endif
 			return mem + PAD_ALIGN;
 		}
 	} else {
 
+		frame_alloc_count++;
 		mem = (uint8_t *)realloc(mem, p_bytes);
 
 		ERR_FAIL_COND_V(mem == NULL && p_bytes > 0, NULL);
-
+#ifdef DEBUG_ENABLED
+		uint64_t end_ticks = OS::get_singleton() ? OS::get_singleton()->get_ticks_usec() : 0;
+		frame_memory_time += (end_ticks - start_ticks) / 1000.0f;
+#endif
 		return mem;
 	}
 }
@@ -160,12 +187,11 @@ void Memory::free_static(void *p_ptr, bool p_pad_align) {
 	uint8_t *mem = (uint8_t *)p_ptr;
 
 #ifdef DEBUG_ENABLED
+	uint64_t start_ticks = OS::get_singleton() ? OS::get_singleton()->get_ticks_usec() : 0;
 	bool prepad = true;
 #else
 	bool prepad = p_pad_align;
 #endif
-
-	alloc_count.decrement();
 
 	if (prepad) {
 		mem -= PAD_ALIGN;
@@ -180,6 +206,11 @@ void Memory::free_static(void *p_ptr, bool p_pad_align) {
 
 		free(mem);
 	}
+
+#ifdef DEBUG_ENABLED
+	uint64_t end_ticks = OS::get_singleton() ? OS::get_singleton()->get_ticks_usec() : 0;
+	frame_memory_time += (end_ticks - start_ticks) / 1000.0f;
+#endif
 }
 
 uint64_t Memory::get_mem_available() {
@@ -200,6 +231,27 @@ uint64_t Memory::get_mem_max_usage() {
 	return max_usage.get();
 #else
 	return 0;
+#endif
+}
+
+uint64_t Memory::get_alloc_count_per_frame() {
+	return prev_frame_alloc_count;
+}
+
+float Memory::get_memory_time_per_frame() {
+#ifdef DEBUG_ENABLED
+	return prev_frame_memory_time;
+#else
+	return 0;
+#endif
+}
+
+void Memory::reset_memory_frame_counters() {
+	prev_frame_alloc_count = frame_alloc_count;
+	frame_alloc_count = 0;
+#ifdef DEBUG_ENABLED
+	prev_frame_memory_time = frame_memory_time;
+	frame_memory_time = 0.0f;
 #endif
 }
 

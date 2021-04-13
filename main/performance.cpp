@@ -53,6 +53,8 @@ void Performance::_bind_methods() {
 	BIND_ENUM_CONSTANT(MEMORY_STATIC_MAX);
 	BIND_ENUM_CONSTANT(MEMORY_DYNAMIC_MAX);
 	BIND_ENUM_CONSTANT(MEMORY_MESSAGE_BUFFER_MAX);
+	BIND_ENUM_CONSTANT(MEMORY_ALLOCATIONS_IN_FRAME);
+	BIND_ENUM_CONSTANT(MEMORY_TIME_IN_FRAME);
 	BIND_ENUM_CONSTANT(OBJECT_COUNT);
 	BIND_ENUM_CONSTANT(OBJECT_RESOURCE_COUNT);
 	BIND_ENUM_CONSTANT(OBJECT_NODE_COUNT);
@@ -101,6 +103,8 @@ String Performance::get_monitor_name(Monitor p_monitor) const {
 		"memory/static_max",
 		"memory/dynamic_max",
 		"memory/msg_buf_max",
+		"memory/allocations_per_frame",
+		"memory/allocation_time_per_frame",
 		"object/objects",
 		"object/resources",
 		"object/nodes",
@@ -141,6 +145,8 @@ float Performance::get_monitor(Monitor p_monitor) const {
 		case MEMORY_STATIC_MAX: return Memory::get_mem_max_usage();
 		case MEMORY_DYNAMIC_MAX: return MemoryPool::max_memory;
 		case MEMORY_MESSAGE_BUFFER_MAX: return MessageQueue::get_singleton()->get_max_buffer_usage();
+		case MEMORY_ALLOCATIONS_IN_FRAME: return Memory::get_alloc_count_per_frame();
+		case MEMORY_TIME_IN_FRAME: return Memory::get_memory_time_per_frame() / 1000.0f;
 		case OBJECT_COUNT: return ObjectDB::get_object_count();
 		case OBJECT_RESOURCE_COUNT: return ResourceCache::get_cached_resource_count();
 		case OBJECT_NODE_COUNT: return _get_node_count();
@@ -185,6 +191,8 @@ Performance::MonitorType Performance::get_monitor_type(Monitor p_monitor) const 
 		MONITOR_TYPE_MEMORY,
 		MONITOR_TYPE_MEMORY,
 		MONITOR_TYPE_MEMORY,
+		MONITOR_TYPE_QUANTITY,
+		MONITOR_TYPE_TIME,
 		MONITOR_TYPE_QUANTITY,
 		MONITOR_TYPE_QUANTITY,
 		MONITOR_TYPE_QUANTITY,

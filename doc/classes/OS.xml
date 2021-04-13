@@ -445,6 +445,20 @@
 				Returns the amount of static memory being used by the program in bytes.
 			</description>
 		</method>
+		<method name="get_alloc_count_per_frame" qualifiers="const">
+			<return type="int">
+			</return>
+			<description>
+				Returns the number of memory allocations done in previous frame.
+			</description>
+		</method>
+		<method name="get_memory_time_per_frame" qualifiers="const">
+			<return type="float">
+			</return>
+			<description>
+				Returns the time spent allocating and freeing memory (milliseconds) in previous frame.
+			</description>
+		</method>
 		<method name="get_system_dir" qualifiers="const">
 			<return type="String">
 			</return>

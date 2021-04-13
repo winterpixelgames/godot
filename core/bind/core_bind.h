@@ -308,6 +308,8 @@ public:
 	uint64_t get_static_memory_usage() const;
 	uint64_t get_static_memory_peak_usage() const;
 	uint64_t get_dynamic_memory_usage() const;
+	uint64_t get_alloc_count_per_frame() const;
+	float get_memory_time_per_frame() const;
 
 	void delay_usec(int p_usec) const;
 	void delay_msec(int p_msec) const;

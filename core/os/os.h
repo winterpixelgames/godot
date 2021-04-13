@@ -369,7 +369,7 @@ public:
 	virtual void delay_usec(uint32_t p_usec) const = 0;
 	virtual void add_frame_delay(bool p_can_draw);
 
-	virtual uint64_t get_ticks_usec() const = 0;
+	virtual uint64_t get_ticks_usec() const;
 	uint32_t get_ticks_msec() const;
 	uint64_t get_splash_tick_msec() const;
 
@@ -426,6 +426,8 @@ public:
 	virtual uint64_t get_static_memory_peak_usage() const;
 	virtual uint64_t get_dynamic_memory_usage() const;
 	virtual uint64_t get_free_static_memory() const;
+	virtual uint64_t get_alloc_count_per_frame() const;
+	virtual float get_memory_time_per_frame() const;
 
 	RenderThreadMode get_render_thread_mode() const { return _render_thread_mode; }
 

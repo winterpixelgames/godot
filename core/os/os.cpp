@@ -84,16 +84,23 @@ String OS::get_iso_date_time(bool local) const {
 uint64_t OS::get_splash_tick_msec() const {
 	return _msec_splash;
 }
-uint64_t OS::get_unix_time() const {
 
+uint64_t OS::get_unix_time() const {
 	return 0;
-};
+}
+
 uint64_t OS::get_system_time_secs() const {
 	return 0;
 }
+
 uint64_t OS::get_system_time_msecs() const {
 	return 0;
 }
+
+uint64_t OS::get_ticks_usec() const {
+	return 0;
+}
+
 void OS::debug_break(){
 
 	// something
@@ -434,6 +441,16 @@ uint64_t OS::get_dynamic_memory_usage() const {
 uint64_t OS::get_static_memory_peak_usage() const {
 
 	return Memory::get_mem_max_usage();
+}
+
+uint64_t OS::get_alloc_count_per_frame() const {
+
+	return Memory::get_alloc_count_per_frame();
+}
+
+float OS::get_memory_time_per_frame() const {
+
+	return Memory::get_memory_time_per_frame();
 }
 
 Error OS::set_cwd(const String &p_cwd) {

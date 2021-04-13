@@ -2052,6 +2052,8 @@ bool Main::iteration() {
 
 	iterating++;
 
+	Memory::reset_memory_frame_counters();
+
 	uint64_t ticks = OS::get_singleton()->get_ticks_usec();
 	Engine::get_singleton()->_frame_ticks = ticks;
 	main_timer_sync.set_cpu_ticks_usec(ticks);
