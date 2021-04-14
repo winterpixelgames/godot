@@ -32,6 +32,7 @@
 #define GLOBALS_LIST_H
 
 #include "core/error_macros.h"
+#include "core/os/clock.h"
 #include "core/os/memory.h"
 #include "core/sort_array.h"
 
@@ -216,7 +217,9 @@ public:
 	 * store a new element at the end of the list
 	 */
 	Element *push_back(const T &value) {
-
+#ifdef DEBUG_ENABLED
+		uint64_t start_ticks = Clock::get_ticks_usec();
+#endif
 		if (!_data) {
 
 			_data = memnew_allocator(_Data, A);
@@ -244,6 +247,10 @@ public:
 
 		_data->size_cache++;
 
+#ifdef DEBUG_ENABLED
+		uint64_t end_ticks = Clock::get_ticks_usec();
+		Memory::increment_linked_list_time_usec(end_ticks - start_ticks);
+#endif
 		return n;
 	};
 
@@ -723,12 +730,19 @@ public:
 		_data = NULL;
 	};
 	~List() {
+#ifdef DEBUG_ENABLED
+		uint64_t start_ticks = Clock::get_ticks_usec();
+#endif
 		clear();
 		if (_data) {
 
 			ERR_FAIL_COND(_data->size_cache);
 			memdelete_allocator<_Data, A>(_data);
 		}
+#ifdef DEBUG_ENABLED
+		uint64_t end_ticks = Clock::get_ticks_usec();
+		Memory::increment_linked_list_time_usec(end_ticks - start_ticks);
+#endif
 	};
 };
 

@@ -76,6 +76,8 @@ uint64_t Memory::frame_alloc_count = 0;
 #ifdef DEBUG_ENABLED
 double Memory::frame_memory_time = 0.0f;
 double Memory::prev_frame_memory_time = 0.0f;
+double Memory::frame_linked_list_time = 0.0f;
+double Memory::prev_frame_linked_list_time = 0.0f;
 #endif
 
 void *Memory::alloc_static(size_t p_bytes, bool p_pad_align) {
@@ -246,12 +248,26 @@ float Memory::get_memory_time_per_frame() {
 #endif
 }
 
+float Memory::get_linked_list_time_per_frame() {
+#ifdef DEBUG_ENABLED
+	return prev_frame_linked_list_time;
+#else
+	return 0;
+#endif
+}
+
+void Memory::increment_linked_list_time_usec(uint64_t usec) {
+	frame_linked_list_time += usec / 1000.0f;
+}
+
 void Memory::reset_memory_frame_counters() {
 	prev_frame_alloc_count = frame_alloc_count;
 	frame_alloc_count = 0;
 #ifdef DEBUG_ENABLED
 	prev_frame_memory_time = frame_memory_time;
 	frame_memory_time = 0.0f;
+	prev_frame_linked_list_time = frame_linked_list_time;
+	frame_linked_list_time = 0.0f;
 #endif
 }
 

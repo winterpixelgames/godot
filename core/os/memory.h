@@ -53,6 +53,9 @@ class Memory {
 #ifdef DEBUG_ENABLED
 	static double prev_frame_memory_time;
 	static double frame_memory_time;
+
+	static double prev_frame_linked_list_time;
+	static double frame_linked_list_time;
 #endif
 
 public:
@@ -65,6 +68,8 @@ public:
 	static uint64_t get_mem_max_usage();
 	static uint64_t get_alloc_count_per_frame();
 	static float get_memory_time_per_frame();
+	static float get_linked_list_time_per_frame();
+	static void increment_linked_list_time_usec(uint64_t usec);
 	static void reset_memory_frame_counters();
 };
 
