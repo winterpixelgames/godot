@@ -212,6 +212,9 @@ public:
 	void notify_resource_saved(const Ref<Resource> &p_resource);
 
 	bool script_class_is_parent(const String &p_class, const String &p_inherits);
+	bool fast_script_class_is_parent(const String &p_class, const String &p_inherits);
+	bool old_script_class_is_parent(const String &p_class, const String &p_inherits);
+
 	StringName script_class_get_base(const String &p_class) const;
 	Variant script_class_instance(const String &p_class);
 

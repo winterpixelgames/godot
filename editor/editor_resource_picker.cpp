@@ -483,7 +483,7 @@ void EditorResourcePicker::_get_allowed_types(bool p_with_convert, Set<String> *
 
 	List<StringName> global_classes;
 	ScriptServer::get_global_class_list(&global_classes);
-
+	print_verbose("EditorResourcePicker get_allowed_types " + base_type);
 	for (int i = 0; i < size; i++) {
 		String base = allowed_types[i].strip_edges();
 		p_vector->insert(base);
@@ -499,15 +499,36 @@ void EditorResourcePicker::_get_allowed_types(bool p_with_convert, Set<String> *
 
 			List<StringName> inheriters;
 			ClassDB::get_inheriters_from_class(base, &inheriters);
+			print_verbose("EditorResourcePicker ClassDB::get_inheriters_from_class " + base + " size: " + itos(inheriters.size()));
 			for (List<StringName>::Element *E = inheriters.front(); E; E = E->next()) {
+				print_verbose("EditorResourcePicker get_inheriters_from_class " + base + " -> " + E->get());
 				p_vector->insert(E->get());
 				allowed_subtypes.push_back(E->get());
 			}
 
+			print_verbose("EditorResourcePicker script_class_is_parent " + base + " global_classes : " + itos(global_classes.size()));
 			for (List<StringName>::Element *E = global_classes.front(); E; E = E->next()) {
-				if (EditorNode::get_editor_data().script_class_is_parent(E->get(), base)) {
+				//if (EditorNode::get_editor_data().script_class_is_parent(E->get(), base)) {
+				int before_original = OS::get_singleton()->get_ticks_usec();
+				bool original_result = EditorNode::get_editor_data().script_class_is_parent(E->get(), base);
+				int after_original = OS::get_singleton()->get_ticks_usec();
+				
+				int before_new = OS::get_singleton()->get_ticks_usec();
+				bool new_result = EditorNode::get_editor_data().fast_script_class_is_parent(E->get(), base);
+				int after_new = OS::get_singleton()->get_ticks_usec();
+				
+				print_verbose("original_time " + itos(after_original - before_original) + " new_time " + itos(after_new - before_new));
+
+				if (original_result != new_result) {
+					print_error("EditorResourcePicker ERROR IS_PARENT MISMATCH original " + itos(original_result) + " new " + itos(new_result) + " " + base + " parent of: " + E->get());
+				}
+				if (new_result) {
+					print_verbose("EditorResourcePicker fast_script_class_is_parent " + base + " is parent of: " + E->get());
 					p_vector->insert(E->get());
 					allowed_subtypes.push_back(E->get());
+				}
+				else {
+					print_verbose("EditorResourcePicker script_class_is_parent " + base + " is not a parent of: " + E->get());
 				}
 			}
 

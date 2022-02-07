@@ -865,7 +865,46 @@ void EditorData::get_plugin_window_layout(Ref<ConfigFile> p_layout) {
 	}
 }
 
+bool EditorData::fast_script_class_is_parent(const String &p_class, const String &p_inherits) {
+	if (!ScriptServer::is_global_class(p_class)) {
+		return false;
+	}
+	print_verbose("fast_script_class_is_parent(" + p_class + ", " + p_inherits + ")");
+	String base  = p_class;
+	while (base != p_inherits) {
+		if (ClassDB::class_exists(base)) {
+			print_verbose("\t\tfast" + base + " class_exists");
+			return ClassDB::is_parent_class(base, p_inherits);
+		} else if (ScriptServer::is_global_class(base)) {
+			print_verbose("\t\tfast" + base + " is_global_class");
+			base = ScriptServer::get_global_class_base(base);
+		} else {
+			print_verbose("\t\tfast" + base + " else return false?");
+			return false;
+		}
+	}
+	print_verbose("\t\tfast" + base + " end of while return true?");
+	return true;
+}
+
 bool EditorData::script_class_is_parent(const String &p_class, const String &p_inherits) {
+	int before_original = OS::get_singleton()->get_ticks_usec();
+	bool original_result = EditorNode::get_editor_data().old_script_class_is_parent(p_class, p_inherits);
+	int after_original = OS::get_singleton()->get_ticks_usec();
+	
+	int before_new = OS::get_singleton()->get_ticks_usec();
+	bool new_result = EditorNode::get_editor_data().fast_script_class_is_parent(p_class, p_inherits);
+	int after_new = OS::get_singleton()->get_ticks_usec();
+	
+	print_verbose("original_time " + itos(after_original - before_original) + " new_time " + itos(after_new - before_new));
+
+	if (original_result != new_result) {
+		print_error("EditorResourcePicker ERROR IS_PARENT MISMATCH original " + itos(original_result) + " new " + itos(new_result) + " " + p_inherits + " parent of: " + p_class);
+	}
+	return new_result;
+}
+
+bool EditorData::old_script_class_is_parent(const String &p_class, const String &p_inherits) {
 	if (!ScriptServer::is_global_class(p_class)) {
 		return false;
 	}
