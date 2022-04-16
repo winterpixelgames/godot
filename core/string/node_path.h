@@ -77,6 +77,9 @@ public:
 		}
 		return data->hash_cache;
 	}
+	static _FORCE_INLINE_ bool is_unique_name(const StringName &s) {
+		return s.starts_with((char32_t)UNIQUE_NODE_PREFIX[0]);
+	}
 
 	operator String() const;
 	bool is_empty() const;

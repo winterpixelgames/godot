@@ -31,7 +31,6 @@
 #include "string_name.h"
 
 #include "core/os/os.h"
-#include "core/string/node_path.h"
 #include "core/string/print_string.h"
 
 StaticCString StaticCString::create(const char *p_ptr) {
@@ -241,9 +240,6 @@ StringName::StringName(const char *p_name, bool p_static) {
 
 	_data = memnew(_Data);
 	_data->name = p_name;
-	if (_data->name != String() && (char32_t)_data->name[0] == (char32_t)UNIQUE_NODE_PREFIX[0]) {
-		_data->node_unique_name = true;
-	}
 	_data->refcount.init();
 	_data->static_count.set(p_static ? 1 : 0);
 	_data->hash = hash;
@@ -310,9 +306,6 @@ StringName::StringName(const StaticCString &p_static_string, bool p_static) {
 	_data->hash = hash;
 	_data->idx = idx;
 	_data->cname = p_static_string.ptr;
-	if (_data->cname && (char32_t)_data->cname[0] == (char32_t)UNIQUE_NODE_PREFIX[0]) {
-		_data->node_unique_name = true;
-	}
 	_data->next = _table[idx];
 	_data->prev = nullptr;
 #ifdef DEBUG_ENABLED
@@ -368,9 +361,6 @@ StringName::StringName(const String &p_name, bool p_static) {
 
 	_data = memnew(_Data);
 	_data->name = p_name;
-	if (_data->name != String() && (char32_t)_data->name[0] == (char32_t)UNIQUE_NODE_PREFIX[0]) {
-		_data->node_unique_name = true;
-	}
 	_data->refcount.init();
 	_data->static_count.set(p_static ? 1 : 0);
 	_data->hash = hash;

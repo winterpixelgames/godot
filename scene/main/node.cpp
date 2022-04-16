@@ -1306,7 +1306,7 @@ Node *Node::get_node_or_null(const NodePath &p_path) const {
 				next = root;
 			}
 
-		} else if (name.is_node_unique_name()) {
+		} else if (NodePath::is_unique_name(name)) {
 			if (current->data.owned_unique_nodes.size()) {
 				// Has unique nodes in ownership
 				Node **unique = current->data.owned_unique_nodes.getptr(name);
