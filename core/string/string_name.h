@@ -54,6 +54,7 @@ class StringName {
 		SafeNumeric<uint32_t> static_count;
 		const char *cname = nullptr;
 		String name;
+		bool node_unique_name = false;
 #ifdef DEBUG_ENABLED
 		uint32_t debug_references = 0;
 #endif
@@ -100,6 +101,10 @@ public:
 	bool operator==(const String &p_name) const;
 	bool operator==(const char *p_name) const;
 	bool operator!=(const String &p_name) const;
+
+	_FORCE_INLINE_ bool is_node_unique_name() const {
+		return _data && _data->node_unique_name;
+	}
 	_FORCE_INLINE_ bool operator<(const StringName &p_name) const {
 		return _data < p_name._data;
 	}
