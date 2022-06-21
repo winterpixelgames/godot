@@ -134,12 +134,14 @@ Error FileAccessUnix::_open(const String &p_path, int p_mode_flags) {
 	int fd = fileno(f);
 
 	if (fd != -1) {
+#ifndef __EMSCRIPTEN__
 #if defined(NO_FCNTL)
 		unsigned long par = 0;
 		ioctl(fd, FIOCLEX, &par);
 #else
 		int opts = fcntl(fd, F_GETFD);
 		fcntl(fd, F_SETFD, opts | FD_CLOEXEC);
+#endif
 #endif
 	}
 

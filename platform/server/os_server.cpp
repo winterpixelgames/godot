@@ -187,7 +187,7 @@ int OS_Server::get_power_percent_left() {
 }
 
 bool OS_Server::_check_internal_feature_support(const String &p_feature) {
-	return p_feature == "pc";
+	return p_feature == "pc" || p_feature == "server";
 }
 
 void OS_Server::run() {

@@ -39,6 +39,10 @@
 #include "core/os/os.h"
 #include "core/script_language.h"
 
+#ifndef WINTERPIXEL_ERR_CHECKS
+#define WINTERPIXEL_ERR_CHECKS 1
+#endif
+
 typedef void (*VariantFunc)(Variant &r_ret, Variant &p_self, const Variant **p_args);
 typedef void (*VariantConstructFunc)(Variant &r_ret, const Variant **p_args);
 
@@ -1180,7 +1184,7 @@ void Variant::call_ptr(const StringName &p_method, const Variant **p_args, int p
 		r_error.error = Variant::CallError::CALL_OK;
 
 		Map<StringName, _VariantCall::FuncData>::Element *E = _VariantCall::type_funcs[type].functions.find(p_method);
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || WINTERPIXEL_ERR_CHECKS
 		if (!E) {
 			r_error.error = Variant::CallError::CALL_ERROR_INVALID_METHOD;
 			return;

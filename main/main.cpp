@@ -2093,6 +2093,8 @@ bool Main::iteration() {
 
 	iterating++;
 
+	Memory::reset_memory_frame_counters();
+
 	// ticks may become modified later on, and we want to store the raw measured
 	// value for profiling.
 	uint64_t raw_ticks_at_start = OS::get_singleton()->get_ticks_usec();

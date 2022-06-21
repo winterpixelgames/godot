@@ -972,6 +972,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	theme->set_color("font_color_selected", "LineEdit", mono_color);
 	theme->set_color("font_color_uneditable", "LineEdit", font_color_readonly);
 	theme->set_color("cursor_color", "LineEdit", font_color);
+	theme->set_constant("cursor_width", "LineEdit", 1.0);
 	theme->set_color("selection_color", "LineEdit", font_color_selection);
 	theme->set_color("clear_button_color", "LineEdit", font_color);
 	theme->set_color("clear_button_color_pressed", "LineEdit", accent_color);

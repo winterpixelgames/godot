@@ -40,6 +40,12 @@ Shader::Mode Shader::get_mode() const {
 }
 
 void Shader::set_code(const String &p_code) {
+	String code = VisualServer::get_singleton()->shader_get_code(shader);
+	if(code == p_code){
+		// quick out if not dirty
+		return;
+	}
+
 	String type = ShaderLanguage::get_shader_type(p_code);
 
 	if (type == "canvas_item") {
@@ -112,7 +118,7 @@ Ref<Texture> Shader::get_default_texture_param(const StringName &p_param) const 
 	}
 }
 
-void Shader::get_default_texture_param_list(List<StringName> *r_textures) const {
+void Shader::get_default_texture_param_list(List<StringName>	 *r_textures) const {
 	for (const Map<StringName, Ref<Texture>>::Element *E = default_textures.front(); E; E = E->next()) {
 		r_textures->push_back(E->key());
 	}

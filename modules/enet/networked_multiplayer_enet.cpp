@@ -218,20 +218,22 @@ void NetworkedMultiplayerENet::poll() {
 	_pop_current_packet();
 
 	ENetEvent event;
-	/* Keep servicing until there are no available events left in queue. */
-	while (true) {
-		if (!host || !active) { // Might have been disconnected while emitting a notification
+
+	if (!host || !active) // Might be disconnected
+		return;
+
+	int ret = enet_host_service(host, &event, 0);
+
+	if (ret < 0) {
+		ERR_FAIL_MSG("Enet host service error");
+	} else if (ret == 0) {
+		return; // No events
+	}
+
+	/* Keep servicing until there are no available events left in the queue. */
+	do {
+		if (!host || !active) // Check again every event
 			return;
-		}
-
-		int ret = enet_host_service(host, &event, 0);
-
-		if (ret < 0) {
-			// Error, do something?
-			break;
-		} else if (ret == 0) {
-			break;
-		}
 
 		switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT: {
@@ -436,7 +438,7 @@ void NetworkedMultiplayerENet::poll() {
 				// Do nothing
 			} break;
 		}
-	}
+	} while (enet_host_check_events(host, &event) > 0);
 }
 
 bool NetworkedMultiplayerENet::is_server() const {
@@ -546,9 +548,10 @@ Error NetworkedMultiplayerENet::put_packet(const uint8_t *p_buffer, int p_buffer
 				packet_flags = ENET_PACKET_FLAG_UNSEQUENCED;
 			}
 			channel = SYSCH_UNRELIABLE;
+			packet_flags |= ENET_PACKET_FLAG_UNRELIABLE_FRAGMENT;
 		} break;
 		case TRANSFER_MODE_UNRELIABLE_ORDERED: {
-			packet_flags = 0;
+			packet_flags = ENET_PACKET_FLAG_UNRELIABLE_FRAGMENT;
 			channel = SYSCH_UNRELIABLE;
 		} break;
 		case TRANSFER_MODE_RELIABLE: {

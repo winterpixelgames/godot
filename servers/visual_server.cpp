@@ -29,14 +29,34 @@
 /*************************************************************************/
 
 #include "visual_server.h"
+#include "visual_server_dummy.h"
 
 #include "core/method_bind_ext.gen.inc"
 #include "core/project_settings.h"
+#include "core/os/thread.h"
 
 VisualServer *VisualServer::singleton = nullptr;
 VisualServer *(*VisualServer::create_func)() = nullptr;
 
+static VisualServerDummy *dummy_singleton = NULL;
+static Thread::ID dummy_thread_id = 0;
+static bool has_set_dummy_thread_id = false;
+
+void VisualServer::set_dummy_thread_id(Thread::ID p_dummy_thread_id) {
+	dummy_thread_id = p_dummy_thread_id;
+	has_set_dummy_thread_id = true;
+}
+
 VisualServer *VisualServer::get_singleton() {
+	Thread::ID main_thread_id = Thread::get_main_id();
+	Thread::ID calling_id = Thread::get_current_id();
+	if(has_set_dummy_thread_id && calling_id != main_thread_id && calling_id == dummy_thread_id) {
+		if(dummy_singleton == NULL) {
+			dummy_singleton = memnew(VisualServerDummy);
+		}
+		return dummy_singleton;
+	}
+	
 	return singleton;
 }
 
@@ -2389,6 +2409,8 @@ void VisualServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(VIEWPORT_USAGE_2D_NO_SAMPLING);
 	BIND_ENUM_CONSTANT(VIEWPORT_USAGE_3D);
 	BIND_ENUM_CONSTANT(VIEWPORT_USAGE_3D_NO_EFFECTS);
+	BIND_ENUM_CONSTANT(VIEWPORT_USAGE_2D_NO_MIPMAPS);
+	BIND_ENUM_CONSTANT(VIEWPORT_USAGE_3D_NO_MIPMAPS);
 
 	BIND_ENUM_CONSTANT(VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME);
 	BIND_ENUM_CONSTANT(VIEWPORT_RENDER_INFO_VERTICES_IN_FRAME);
@@ -2583,6 +2605,10 @@ void VisualServer::set_render_loop_enabled(bool p_enabled) {
 }
 
 VisualServer::VisualServer() {
+	// This is so hacky and bad... Why singletons!!!!
+	if(singleton) {
+		return;
+	}
 	//ERR_FAIL_COND(singleton);
 	singleton = this;
 
@@ -2704,5 +2730,7 @@ VisualServer::VisualServer() {
 }
 
 VisualServer::~VisualServer() {
-	singleton = nullptr;
+	if(this == singleton) {
+		singleton = NULL;
+	}
 }

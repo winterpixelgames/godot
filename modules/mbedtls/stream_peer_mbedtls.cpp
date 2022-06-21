@@ -45,6 +45,8 @@ int StreamPeerMbedTLS::bio_send(void *ctx, const unsigned char *buf, size_t len)
 	int sent;
 	Error err = sp->base->put_partial_data((const uint8_t *)buf, len, sent);
 	if (err != OK) {
+		//printf("mbedtls errno: %i\n", err);
+		//fflush(stdout);
 		return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
 	}
 	if (sent == 0) {
@@ -65,6 +67,8 @@ int StreamPeerMbedTLS::bio_recv(void *ctx, unsigned char *buf, size_t len) {
 	int got;
 	Error err = sp->base->get_partial_data((uint8_t *)buf, len, got);
 	if (err != OK) {
+		//printf("mbedtls errno: %i\n", err);
+		//fflush(stdout);
 		return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
 	}
 	if (got == 0) {
@@ -78,6 +82,7 @@ void StreamPeerMbedTLS::_cleanup() {
 	base = Ref<StreamPeer>();
 	status = STATUS_DISCONNECTED;
 }
+
 
 Error StreamPeerMbedTLS::_do_handshake() {
 	int ret = 0;
@@ -97,7 +102,6 @@ Error StreamPeerMbedTLS::_do_handshake() {
 			return OK;
 		}
 	}
-
 	status = STATUS_CONNECTED;
 	return OK;
 }

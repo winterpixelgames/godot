@@ -35,6 +35,7 @@
 #include "core/map.h"
 #include "core/pair.h"
 #include "core/resource.h"
+#include "core/os/rw_lock.h"
 
 class ScriptLanguage;
 
@@ -51,6 +52,7 @@ class ScriptServer {
 	static bool scripting_enabled;
 	static bool reload_scripts_on_save;
 	static bool languages_finished;
+	static RWLock lock;
 
 	struct GlobalScriptClass {
 		StringName language;

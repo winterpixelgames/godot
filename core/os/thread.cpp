@@ -49,8 +49,7 @@ uint64_t Thread::_thread_id_hash(const std::thread::id &p_t) {
 }
 
 Thread::ID Thread::main_thread_id = _thread_id_hash(std::this_thread::get_id());
-static thread_local Thread::ID caller_id = 0;
-static thread_local bool caller_id_cached = false;
+thread_local Thread::ID caller_id = 0;
 
 void Thread::_set_platform_funcs(
 		Error (*p_set_name_func)(const String &),
@@ -64,8 +63,6 @@ void Thread::_set_platform_funcs(
 }
 
 void Thread::callback(Thread *p_self, const Settings &p_settings, Callback p_callback, void *p_userdata) {
-	caller_id = _thread_id_hash(p_self->thread.get_id());
-	caller_id_cached = true;
 
 	if (set_priority_func) {
 		set_priority_func(p_settings.priority);
@@ -87,11 +84,9 @@ void Thread::start(Thread::Callback p_callback, void *p_user, const Settings &p_
 		WARN_PRINT("A Thread object has been re-started without wait_to_finish() having been called on it. Please do so to ensure correct cleanup of the thread.");
 #endif
 		thread.detach();
-		std::thread empty_thread;
-		thread.swap(empty_thread);
+		thread = std::thread(); //empty thread
 	}
-	std::thread new_thread(&Thread::callback, this, p_settings, p_callback, p_user);
-	thread.swap(new_thread);
+	thread = std::thread(&Thread::callback, this, p_settings, p_callback, p_user);
 	id = _thread_id_hash(thread.get_id());
 }
 
@@ -103,8 +98,7 @@ void Thread::wait_to_finish() {
 	if (id != _thread_id_hash(std::thread::id())) {
 		ERR_FAIL_COND_MSG(id == get_caller_id(), "A Thread can't wait for itself to finish.");
 		thread.join();
-		std::thread empty_thread;
-		thread.swap(empty_thread);
+		thread = std::thread(); //empty thread
 		id = _thread_id_hash(std::thread::id());
 	}
 }
@@ -117,6 +111,10 @@ Error Thread::set_name(const String &p_name) {
 	return ERR_UNAVAILABLE;
 }
 
+Thread::Thread() {
+	caller_id = _thread_id_hash(std::this_thread::get_id());
+}
+
 Thread::~Thread() {
 	if (id != _thread_id_hash(std::thread::id())) {
 #ifdef DEBUG_ENABLED
@@ -127,13 +125,8 @@ Thread::~Thread() {
 }
 
 Thread::ID Thread::get_caller_id() {
-	if (likely(caller_id_cached)) {
-		return caller_id;
-	} else {
-		caller_id = _thread_id_hash(std::this_thread::get_id());
-		caller_id_cached = true;
-		return caller_id;
-	}
+	return caller_id;
 }
+
 #endif
 #endif // PLATFORM_THREAD_OVERRIDE

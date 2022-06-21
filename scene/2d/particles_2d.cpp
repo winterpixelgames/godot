@@ -108,8 +108,16 @@ void Particles2D::set_use_local_coordinates(bool p_enable) {
 	}
 }
 
+void Particles2D::set_custom_relative_transform(const Transform2D &p_xform) {
+	//ERR_FAIL_COND_MSG(!local_coords, "Custom relative transform cannot be used with local_coords enabled.");
+	custom_relative_xform = p_xform;
+	if (is_inside_tree()) {
+		_update_particle_emission_transform();
+	}
+}
+
 void Particles2D::_update_particle_emission_transform() {
-	Transform2D xf2d = get_global_transform();
+	Transform2D xf2d = custom_relative_xform.affine_inverse() * get_global_transform();
 	Transform xf;
 	xf.basis.set_axis(0, Vector3(xf2d.get_axis(0).x, xf2d.get_axis(0).y, 0));
 	xf.basis.set_axis(1, Vector3(xf2d.get_axis(1).x, xf2d.get_axis(1).y, 0));
@@ -168,6 +176,11 @@ Rect2 Particles2D::get_visibility_rect() const {
 bool Particles2D::get_use_local_coordinates() const {
 	return local_coords;
 }
+
+Transform2D Particles2D::get_custom_relative_transform() const {
+	return custom_relative_xform;
+}
+
 Ref<Material> Particles2D::get_process_material() const {
 	return process_material;
 }
@@ -323,6 +336,7 @@ void Particles2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_randomness_ratio", "ratio"), &Particles2D::set_randomness_ratio);
 	ClassDB::bind_method(D_METHOD("set_visibility_rect", "visibility_rect"), &Particles2D::set_visibility_rect);
 	ClassDB::bind_method(D_METHOD("set_use_local_coordinates", "enable"), &Particles2D::set_use_local_coordinates);
+	ClassDB::bind_method(D_METHOD("set_custom_relative_transform", "xform"), &Particles2D::set_custom_relative_transform);
 	ClassDB::bind_method(D_METHOD("set_fixed_fps", "fps"), &Particles2D::set_fixed_fps);
 	ClassDB::bind_method(D_METHOD("set_fractional_delta", "enable"), &Particles2D::set_fractional_delta);
 	ClassDB::bind_method(D_METHOD("set_process_material", "material"), &Particles2D::set_process_material);
@@ -337,6 +351,7 @@ void Particles2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_randomness_ratio"), &Particles2D::get_randomness_ratio);
 	ClassDB::bind_method(D_METHOD("get_visibility_rect"), &Particles2D::get_visibility_rect);
 	ClassDB::bind_method(D_METHOD("get_use_local_coordinates"), &Particles2D::get_use_local_coordinates);
+	ClassDB::bind_method(D_METHOD("get_custom_relative_transform"), &Particles2D::get_custom_relative_transform);
 	ClassDB::bind_method(D_METHOD("get_fixed_fps"), &Particles2D::get_fixed_fps);
 	ClassDB::bind_method(D_METHOD("get_fractional_delta"), &Particles2D::get_fractional_delta);
 	ClassDB::bind_method(D_METHOD("get_process_material"), &Particles2D::get_process_material);
@@ -369,6 +384,7 @@ void Particles2D::_bind_methods() {
 	ADD_GROUP("Drawing", "");
 	ADD_PROPERTY(PropertyInfo(Variant::RECT2, "visibility_rect"), "set_visibility_rect", "get_visibility_rect");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "local_coords"), "set_use_local_coordinates", "get_use_local_coordinates");
+	ADD_PROPERTY(PropertyInfo(Variant::TRANSFORM2D, "custom_relative_transform"), "set_custom_relative_transform", "get_custom_relative_transform");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "draw_order", PROPERTY_HINT_ENUM, "Index,Lifetime"), "set_draw_order", "get_draw_order");
 	ADD_GROUP("Process Material", "process_");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "process_material", PROPERTY_HINT_RESOURCE_TYPE, "ShaderMaterial,ParticlesMaterial"), "set_process_material", "get_process_material");
@@ -395,6 +411,7 @@ Particles2D::Particles2D() {
 	set_randomness_ratio(0);
 	set_visibility_rect(Rect2(Vector2(-100, -100), Vector2(200, 200)));
 	set_use_local_coordinates(true);
+	set_custom_relative_transform(Transform2D());
 	set_draw_order(DRAW_ORDER_INDEX);
 	set_speed_scale(1);
 }

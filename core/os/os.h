@@ -366,7 +366,7 @@ public:
 	virtual void delay_usec(uint32_t p_usec) const = 0;
 	virtual void add_frame_delay(bool p_can_draw);
 
-	virtual uint64_t get_ticks_usec() const = 0;
+	virtual uint64_t get_ticks_usec() const;
 	uint32_t get_ticks_msec() const;
 	uint64_t get_splash_tick_msec() const;
 
@@ -402,8 +402,19 @@ public:
 		CURSOR_MAX
 	};
 
+	enum VirtualKeyboardType {
+		KEYBOARD_TYPE_DEFAULT,
+		KEYBOARD_TYPE_MULTILINE,
+		KEYBOARD_TYPE_NUMBER,
+		KEYBOARD_TYPE_NUMBER_DECIMAL,
+		KEYBOARD_TYPE_PHONE,
+		KEYBOARD_TYPE_EMAIL_ADDRESS,
+		KEYBOARD_TYPE_PASSWORD,
+		KEYBOARD_TYPE_URL
+	};
+
 	virtual bool has_virtual_keyboard() const;
-	virtual void show_virtual_keyboard(const String &p_existing_text, const Rect2 &p_screen_rect = Rect2(), bool p_multiline = false, int p_max_input_length = -1, int p_cursor_start = -1, int p_cursor_end = -1);
+	virtual void show_virtual_keyboard(const String &p_existing_text, const Rect2 &p_screen_rect = Rect2(), VirtualKeyboardType p_type = KEYBOARD_TYPE_DEFAULT, int p_max_input_length = -1, int p_cursor_start = -1, int p_cursor_end = -1);
 	virtual void hide_virtual_keyboard();
 
 	// returns height of the currently shown virtual keyboard (0 if keyboard is hidden)
@@ -423,6 +434,8 @@ public:
 	virtual uint64_t get_static_memory_peak_usage() const;
 	virtual uint64_t get_dynamic_memory_usage() const;
 	virtual uint64_t get_free_static_memory() const;
+	virtual uint64_t get_alloc_count_per_frame() const;
+	virtual float get_memory_time_per_frame() const;
 
 	RenderThreadMode get_render_thread_mode() const { return _render_thread_mode; }
 

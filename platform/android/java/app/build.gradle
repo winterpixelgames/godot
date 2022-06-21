@@ -95,6 +95,7 @@ android {
         ndk {
             String[] export_abi_list = getExportEnabledABIs()
             abiFilters export_abi_list
+            debugSymbolLevel 'FULL'
         }
 
         manifestPlaceholders = [godotEditorVersion: getGodotEditorVersion()]
@@ -158,6 +159,9 @@ android {
             } else {
                 signingConfig null
             }
+            ndk {
+                debugSymbolLevel 'FULL'
+            }
         }
 
         release {
@@ -168,6 +172,9 @@ android {
                 signingConfig signingConfigs.release
             } else {
                 signingConfig null
+            }
+            ndk {
+                debugSymbolLevel 'FULL'
             }
         }
     }

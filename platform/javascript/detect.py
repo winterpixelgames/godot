@@ -29,7 +29,7 @@ def get_opts():
     from SCons.Variables import BoolVariable
 
     return [
-        ("initial_memory", "Initial WASM memory (in MiB)", 32),
+        ("initial_memory", "Initial WASM memory (in MiB)", 256),
         BoolVariable("use_assertions", "Use Emscripten runtime assertions", False),
         BoolVariable("use_thinlto", "Use ThinLTO", False),
         BoolVariable("use_ubsan", "Use Emscripten undefined behavior sanitizer (UBSAN)", False),
@@ -75,9 +75,11 @@ def configure(env):
             env.Append(CCFLAGS=["-Os"])
             env.Append(LINKFLAGS=["-Os"])
 
-        if env["target"] == "release_debug":
+        #if env["target"] == "release_debug":
             # Retain function names for backtraces at the cost of file size.
-            env.Append(LINKFLAGS=["--profiling-funcs"])
+
+        env.Append(LINKFLAGS=["--profiling-funcs"])
+        env.Append(LINKFLAGS=["-g"])
     else:  # "debug"
         env.Append(CCFLAGS=["-O1", "-g"])
         env.Append(LINKFLAGS=["-O1", "-g"])
@@ -85,6 +87,7 @@ def configure(env):
 
     if env["use_assertions"]:
         env.Append(LINKFLAGS=["-s", "ASSERTIONS=1"])
+        env.Append(CCFLAGS=["-s", "ASSERTIONS=1"])
 
     if env["tools"]:
         if not env["threads_enabled"]:
@@ -97,6 +100,7 @@ def configure(env):
         # Disable exceptions and rtti on non-tools (template) builds
         # These flags help keep the file size down.
         env.Append(CCFLAGS=["-fno-exceptions", "-fno-rtti"])
+        
         # Don't use dynamic_cast, necessary with no-rtti.
         env.Append(CPPDEFINES=["NO_SAFE_CAST"])
 
@@ -189,7 +193,18 @@ def configure(env):
         env.Append(CCFLAGS=["-s", "USE_PTHREADS=1"])
         env.Append(LINKFLAGS=["-s", "USE_PTHREADS=1"])
         env.Append(LINKFLAGS=["-s", "PTHREAD_POOL_SIZE=8"])
-        env.Append(LINKFLAGS=["-s", "WASM_MEM_MAX=2048MB"])
+        
+        # customization
+        env.Append(LINKFLAGS=["-s", "MAXIMUM_MEMORY=2048MB"])
+        
+        #env.Append(CCFLAGS=["--cpuprofiler"])
+        #env.Append(LINKFLAGS=["--cpuprofiler"])
+        #env.Append(CCFLAGS=["--memoryprofiler"])
+        #env.Append(LINKFLAGS=["--memoryprofiler"])
+
+        #env.Append(CCFLAGS=["-s", "PROXY_TO_PTHREAD"])  # we need to support this eventually
+        #env.Append(LINKFLAGS=["-s", "PROXY_TO_PTHREAD"])
+
         env.extra_suffix = ".threads" + env.extra_suffix
     else:
         env.Append(CPPDEFINES=["NO_THREADS"])
@@ -202,6 +217,9 @@ def configure(env):
         env.Append(CCFLAGS=["-s", "RELOCATABLE=1"])
         env.Append(LINKFLAGS=["-s", "RELOCATABLE=1"])
         env.extra_suffix = ".gdnative" + env.extra_suffix
+
+    major, minor, patch = get_compiler_version(env)
+    print("emscripten version detected: %s.%s.%s" % (major, minor, patch))
 
     # Reduce code size by generating less support code (e.g. skip NodeJS support).
     env.Append(LINKFLAGS=["-s", "ENVIRONMENT=web,worker"])

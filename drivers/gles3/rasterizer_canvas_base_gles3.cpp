@@ -742,7 +742,7 @@ void RasterizerCanvasBaseGLES3::_copy_texscreen(const Rect2 &p_rect) {
 	storage->shaders.copy.set_uniform(CopyShaderGLES3::COPY_SECTION, blur_section);
 
 	scene_render->_copy_screen();
-
+	
 	for (int i = 0; i < storage->frame.current_rt->effects.mip_maps[1].sizes.size(); i++) {
 		int vp_w = storage->frame.current_rt->effects.mip_maps[1].sizes[i].width;
 		int vp_h = storage->frame.current_rt->effects.mip_maps[1].sizes[i].height;
@@ -775,7 +775,7 @@ void RasterizerCanvasBaseGLES3::_copy_texscreen(const Rect2 &p_rect) {
 
 		scene_render->state.effect_blur_shader.set_conditional(EffectBlurShaderGLES3::GAUSSIAN_VERTICAL, false);
 	}
-
+	
 	scene_render->state.effect_blur_shader.set_conditional(EffectBlurShaderGLES3::USE_BLUR_SECTION, false);
 	storage->shaders.copy.set_conditional(CopyShaderGLES3::USE_COPY_SECTION, false);
 

@@ -194,6 +194,7 @@ public:
 	virtual void set_skip_breakpoints(bool p_skip_breakpoints);
 
 	void set_scene_tree(SceneTree *p_scene_tree) { scene_tree = p_scene_tree; };
+	SceneTree* get_scene_tree(){ return scene_tree; };
 	void set_allow_focus_steal_pid(OS::ProcessID p_pid);
 
 	ScriptDebuggerRemote();

@@ -93,6 +93,8 @@ public:
 	_FORCE_INLINE_ ID get_id() const { return id; }
 	// get the ID of the caller thread
 	static ID get_caller_id();
+	// get the ID of the current executing thread
+	static ID get_current_id() { return _thread_id_hash(std::this_thread::get_id()); }
 	// get the ID of the main thread
 	_FORCE_INLINE_ static ID get_main_id() { return main_thread_id; }
 
@@ -103,11 +105,14 @@ public:
 	///< waits until thread is finished, and deallocates it.
 	void wait_to_finish();
 
+	Thread();
 	~Thread();
 #else
 	_FORCE_INLINE_ ID get_id() const { return 0; }
 	// get the ID of the caller thread
 	_FORCE_INLINE_ static ID get_caller_id() { return 0; }
+	// get the ID of the current executing thread
+	_FORCE_INLINE_ static ID get_current_id() { return 0; }
 	// get the ID of the main thread
 	_FORCE_INLINE_ static ID get_main_id() { return 0; }
 

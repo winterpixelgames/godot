@@ -4216,7 +4216,139 @@ void GDScriptParser::_parse_class(ClassNode *p_class) {
 						}
 					}
 
-					if (tokenizer->get_token() == GDScriptTokenizer::TK_BUILT_IN_TYPE) {
+					bool is_net_encoded = false;
+					/*
+					NET_BOOL,
+					NET_INT,
+					NET_UNSIGNED_INT,
+					NET_REAL,
+					NET_UNIT_REAL,
+					NET_UNSIGNED_UNIT_REAL,
+					NET_VECTOR2,
+					NET_VECTOR2_NORMALIZED,
+					NET_VECTOR3,
+					NET_VECTOR3_NORMALIZED,
+					NET_POOL_BYTE_ARRAY
+					NET_POOL_INT_ARRAY
+					NET_POOL_REAL_ARRAY
+					NET_POOL_VECTOR2_ARRAY
+					NET_POOL_VECTOR3_ARRAY
+					NET_POOL_COLOR_ARRAY
+					NET_VARIANT
+					*/
+					if(tokenizer->get_token() == GDScriptTokenizer::TK_IDENTIFIER) {
+					if (tokenizer->get_token_identifier() == "NET_BOOL") {
+						current_export.hint_string = "NET_BOOL";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_INT") {
+						current_export.hint_string = "NET_INT";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_UNSIGNED_INT") {
+						current_export.hint_string = "NET_UNSIGNED_INT";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_REAL") {
+						current_export.hint_string = "NET_REAL";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_UNIT_REAL") {
+						current_export.hint_string = "NET_UNIT_REAL";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_UNSIGNED_UNIT_REAL") {
+						current_export.hint_string = "NET_UNSIGNED_UNIT_REAL";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_VECTOR2") {
+						current_export.hint_string = "NET_VECTOR2";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_VECTOR2_NORMALIZED") {
+						current_export.hint_string = "NET_VECTOR2_NORMALIZED";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_VECTOR3") {
+						current_export.hint_string = "NET_VECTOR3";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_VECTOR3_NORMALIZED") {
+						current_export.hint_string = "NET_VECTOR3_NORMALIZED";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_POOL_BYTE_ARRAY") {
+						current_export.hint_string = "NET_POOL_BYTE_ARRAY";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_POOL_INT_ARRAY") {
+						current_export.hint_string = "NET_POOL_INT_ARRAY";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_POOL_REAL_ARRAY") {
+						current_export.hint_string = "NET_POOL_REAL_ARRAY";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_POOL_VECTOR2_ARRAY") {
+						current_export.hint_string = "NET_POOL_VECTOR2_ARRAY";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_POOL_VECTOR3_ARRAY") {
+						current_export.hint_string = "NET_POOL_VECTOR3_ARRAY";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_POOL_COLOR_ARRAY") {
+						current_export.hint_string = "NET_POOL_COLOR_ARRAY";
+						is_net_encoded = true;
+					}
+					else if(tokenizer->get_token_identifier() == "NET_VARIANT") {
+						current_export.hint_string = "NET_VARIANT";
+						is_net_encoded = true;
+					}
+					}
+					
+					
+
+					if(is_net_encoded) {
+						tokenizer->advance(); // Comma
+						if (tokenizer->get_token() == GDScriptTokenizer::TK_COMMA) {
+							tokenizer->advance();
+							// parse the compression level
+
+							// Check for net compression hints
+							if (tokenizer->get_token_identifier() == "NET_COMPRESS_4") {
+								tokenizer->advance();
+								current_export.hint = PROPERTY_HINT_NET_COMPRESS_4;
+							}
+							else if(tokenizer->get_token_identifier() == "NET_COMPRESS_3") {
+								tokenizer->advance();
+								current_export.hint = PROPERTY_HINT_NET_COMPRESS_3;
+							}
+							else if(tokenizer->get_token_identifier() == "NET_COMPRESS_2") {
+								tokenizer->advance();
+								current_export.hint = PROPERTY_HINT_NET_COMPRESS_2;
+							}
+							else if(tokenizer->get_token_identifier() == "NET_COMPRESS_1") {
+								tokenizer->advance();
+								current_export.hint = PROPERTY_HINT_NET_COMPRESS_1;
+							}
+							else if(tokenizer->get_token_identifier() == "NET_COMPRESS_0") {
+								tokenizer->advance();
+								current_export.hint = PROPERTY_HINT_NET_COMPRESS_0;
+							}
+							else {
+								_set_error("Unknown network compression level.  Please use NET_COMPRESS_0-NET_COMPRESS_4.");
+								return;
+							}
+						}
+						else {
+							_set_error("Have to specify a compression level for a net encoded property.");
+							return;
+						}
+
+					}
+					else if (tokenizer->get_token() == GDScriptTokenizer::TK_BUILT_IN_TYPE) {
+
 						Variant::Type type = tokenizer->get_token_type();
 						if (type == Variant::NIL) {
 							_set_error("Can't export null type.");
@@ -4608,7 +4740,8 @@ void GDScriptParser::_parse_class(ClassNode *p_class) {
 							}
 						}
 
-					} else {
+					} else if(!is_net_encoded) {
+
 						parenthesis++;
 						Node *subexpr = _parse_and_reduce_expression(p_class, true, true);
 						if (!subexpr) {
@@ -4841,12 +4974,13 @@ void GDScriptParser::_parse_class(ClassNode *p_class) {
 
 				ClassNode::Member member;
 
-				bool autoexport = tokenizer->get_token(-1) == GDScriptTokenizer::TK_PR_EXPORT;
-				if (current_export.type != Variant::NIL) {
+				bool is_net_export = (current_export.hint == PROPERTY_HINT_NET_COMPRESS_0 || current_export.hint == PROPERTY_HINT_NET_COMPRESS_1 || current_export.hint == PROPERTY_HINT_NET_COMPRESS_2 || current_export.hint == PROPERTY_HINT_NET_COMPRESS_3 || current_export.hint == PROPERTY_HINT_NET_COMPRESS_4 );
+				bool autoexport = tokenizer->get_token(-1) == GDScriptTokenizer::TK_PR_EXPORT || is_net_export;
+				if (current_export.type != Variant::NIL || is_net_export) {
 					member._export = current_export;
 					current_export = PropertyInfo();
 				}
-
+ 
 				bool onready = tokenizer->get_token(-1) == GDScriptTokenizer::TK_PR_ONREADY;
 
 				tokenizer->advance();

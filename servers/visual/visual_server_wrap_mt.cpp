@@ -167,6 +167,9 @@ VisualServerWrapMT::VisualServerWrapMT(VisualServer *p_contained, bool p_create_
 	} else {
 		server_thread = 0;
 	}
+	
+	// If a VisualServerWrapMT is instantiated, the singleton should be this... :(
+	VisualServer::singleton = this;
 }
 
 VisualServerWrapMT::~VisualServerWrapMT() {

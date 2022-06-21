@@ -157,71 +157,35 @@ bool WSLClient::_verify_headers(String &r_protocol) {
 }
 
 Error WSLClient::connect_to_host(String p_host, String p_path, uint16_t p_port, bool p_ssl, const Vector<String> p_protocols, const Vector<String> p_custom_headers) {
-	ERR_FAIL_COND_V(_connection.is_valid(), ERR_ALREADY_IN_USE);
-	ERR_FAIL_COND_V(p_path.empty(), ERR_INVALID_PARAMETER);
+
+	ERR_FAIL_COND_V(_status != STATUS_DISCONNECTED, ERR_ALREADY_IN_USE);
 
 	_peer = Ref<WSLPeer>(memnew(WSLPeer));
-
-	if (p_host.is_valid_ip_address()) {
-		ip_candidates.clear();
-		ip_candidates.push_back(IP_Address(p_host));
-	} else {
-		ip_candidates = IP::get_singleton()->resolve_hostname_addresses(p_host);
-	}
-
-	ERR_FAIL_COND_V(ip_candidates.empty(), ERR_INVALID_PARAMETER);
-
-	String port = "";
-	if ((p_port != 80 && !p_ssl) || (p_port != 443 && p_ssl)) {
-		port = ":" + itos(p_port);
-	}
-
-	Error err = ERR_BUG; // Should be at least one entry.
-	while (ip_candidates.size() > 0) {
-		err = _tcp->connect_to_host(ip_candidates.pop_front(), p_port);
-		if (err == OK) {
-			break;
-		}
-	}
-	if (err != OK) {
-		_tcp->disconnect_from_host();
-		_on_error();
-		return err;
-	}
-	_connection = _tcp;
-	_use_ssl = p_ssl;
+	
 	_host = p_host;
 	_port = p_port;
-	// Strip edges from protocols.
+	_path = p_path;
+	_use_ssl = p_ssl;
+	_original_protocols = p_protocols;
 	_protocols.resize(p_protocols.size());
 	String *pw = _protocols.ptrw();
 	for (int i = 0; i < p_protocols.size(); i++) {
 		pw[i] = p_protocols[i].strip_edges();
 	}
+	_custom_headers = p_custom_headers;
 
-	_key = WSLPeer::generate_key();
-	// TODO custom extra headers (allow overriding this too?)
-	String request = "GET " + p_path + " HTTP/1.1\r\n";
-	request += "Host: " + p_host + port + "\r\n";
-	request += "Upgrade: websocket\r\n";
-	request += "Connection: Upgrade\r\n";
-	request += "Sec-WebSocket-Key: " + _key + "\r\n";
-	request += "Sec-WebSocket-Version: 13\r\n";
-	if (p_protocols.size() > 0) {
-		request += "Sec-WebSocket-Protocol: ";
-		for (int i = 0; i < p_protocols.size(); i++) {
-			if (i != 0) {
-				request += ",";
-			}
-			request += p_protocols[i];
-		}
-		request += "\r\n";
+
+	if (!p_host.is_valid_ip_address()) {
+		// Host contains hostname and needs to be resolved to IP
+		_resolving = IP::get_singleton()->resolve_hostname_queue_item(p_host);
+		_status = Status::STATUS_RESOLVING;
+		return OK;
+	} else {
+		_addr = p_host;
+		ERR_FAIL_COND_V(!_addr.is_valid(), ERR_INVALID_PARAMETER);
+		_status = Status::STATUS_RESOLVED;
+		return OK;
 	}
-	for (int i = 0; i < p_custom_headers.size(); i++) {
-		request += p_custom_headers[i] + "\r\n";
-	}
-	request += "\r\n";
-	_request = request.utf8();
 
 	return OK;
 }
@@ -231,6 +195,76 @@ int WSLClient::get_max_packet_size() const {
 }
 
 void WSLClient::poll() {
+	if(_status == Status::STATUS_RESOLVING) {
+		if(_resolving == IP::RESOLVER_INVALID_ID){
+			ERR_FAIL_MSG("Bug, invalid resolver ID");
+			return;
+		}
+
+		IP::ResolverStatus rstatus = IP::get_singleton()->get_resolve_item_status(_resolving);
+		switch (rstatus) {
+			case IP::RESOLVER_STATUS_WAITING:
+				return; // Still resolving
+
+			case IP::RESOLVER_STATUS_DONE: {
+				_addr = IP::get_singleton()->get_resolve_item_address(_resolving);
+
+				if(!_addr.is_valid()){
+					_status = Status::STATUS_DISCONNECTED;
+					_on_error();
+					ERR_FAIL_MSG("Invalid addr");
+				}
+				_status = Status::STATUS_RESOLVED;
+			} break;
+			case IP::RESOLVER_STATUS_NONE:
+			case IP::RESOLVER_STATUS_ERROR: {
+				_status = Status::STATUS_DISCONNECTED;
+				_on_error();
+				ERR_FAIL_MSG("Error, couldn't resolve hostname");
+			} break;
+		}
+	}
+
+	if(_status == Status::STATUS_RESOLVED) {
+		String port = "";
+		if ((_port != 80 && !_use_ssl) || (_port != 443 && _use_ssl)) {
+			port = ":" + itos(_port);
+		}
+
+		Error err = _tcp->connect_to_host(_addr, _port);
+		if (err != OK) {
+			_tcp->disconnect_from_host();
+			_on_error();
+			return;
+		}
+		_connection = _tcp;
+		
+		_key = WSLPeer::generate_key();
+		// TODO custom extra headers (allow overriding this too?)
+		String request = "GET " + _path + " HTTP/1.1\r\n";
+		request += "Host: " + _host + port + "\r\n";
+		request += "Upgrade: websocket\r\n";
+		request += "Connection: Upgrade\r\n";
+		request += "Sec-WebSocket-Key: " + _key + "\r\n";
+		request += "Sec-WebSocket-Version: 13\r\n";
+		if (_original_protocols.size() > 0) {
+			request += "Sec-WebSocket-Protocol: ";
+			for (int i = 0; i < _original_protocols.size(); i++) {
+				if (i != 0)
+					request += ",";
+				request += _original_protocols[i];
+			}
+			request += "\r\n";
+		}
+		for (int i = 0; i < _custom_headers.size(); i++) {
+			request += _custom_headers[i] + "\r\n";
+		}
+		request += "\r\n";
+		_request = request.utf8();
+
+		_status = STATUS_CONNECTED;
+	}
+
 	if (_peer->is_connected_to_host()) {
 		_peer->poll();
 		if (!_peer->is_connected_to_host()) {
@@ -303,6 +337,11 @@ Ref<WebSocketPeer> WSLClient::get_peer(int p_peer_id) const {
 }
 
 NetworkedMultiplayerPeer::ConnectionStatus WSLClient::get_connection_status() const {
+
+	if(_status == Status::STATUS_RESOLVING || _status == Status::STATUS_RESOLVED) {
+		return CONNECTION_CONNECTING;
+	}
+	
 	if (_peer->is_connected_to_host()) {
 		return CONNECTION_CONNECTED;
 	}
@@ -315,6 +354,8 @@ NetworkedMultiplayerPeer::ConnectionStatus WSLClient::get_connection_status() co
 }
 
 void WSLClient::disconnect_from_host(int p_code, String p_reason) {
+
+	_status = Status::STATUS_DISCONNECTED;
 	_peer->close(p_code, p_reason);
 	_connection = Ref<StreamPeer>(nullptr);
 	_tcp = Ref<StreamPeerTCP>(memnew(StreamPeerTCP));

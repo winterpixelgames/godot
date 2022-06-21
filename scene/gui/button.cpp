@@ -76,6 +76,11 @@ void Button::_notification(int p_what) {
 			Color color;
 			Color color_icon(1, 1, 1, 1);
 
+			if (has_focus()) {
+				Ref<StyleBox> style2 = get_stylebox("focus");
+				style2->draw(ci, Rect2(Point2(), size));
+			}
+
 			Ref<StyleBox> style = get_stylebox("normal");
 
 			switch (get_draw_mode()) {
@@ -154,11 +159,6 @@ void Button::_notification(int p_what) {
 					}
 
 				} break;
-			}
-
-			if (has_focus()) {
-				Ref<StyleBox> style2 = get_stylebox("focus");
-				style2->draw(ci, Rect2(Point2(), size));
 			}
 
 			Ref<Font> font = get_font("font");

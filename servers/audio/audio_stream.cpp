@@ -92,6 +92,82 @@ void AudioStreamPlaybackResampled::mix(AudioFrame *p_buffer, float p_rate_scale,
 
 ////////////////////////////////
 
+void AudioStreamPlaybackCached::_mix_internal(AudioFrame *p_buffer, int p_frames) {
+	// impl based on AudioStreamPlaybackOGGVorbis::_mix_internal
+	int todo = p_frames;
+
+	int start_buffer = 0;
+
+	while (todo && active) {
+		AudioFrame *buffer = p_buffer;
+		if (start_buffer > 0) {
+			buffer += start_buffer;
+		}
+
+		int copy_frames = MIN(todo, frame_data->size() - frames_sampled);
+		// TODO limit len to int64_t(loop_end*sample_rate)
+		for (int i = 0; i < copy_frames; ++i) {
+			buffer[i] = (*frame_data)[frames_sampled + i];
+		}
+		todo -= copy_frames;
+		frames_sampled += copy_frames;
+
+		if (todo > 0) {
+			bool is_not_empty = frame_data->size() > 0;
+			if (loop && is_not_empty) {
+				seek(loop_offset);
+				loop_count++;
+				start_buffer = p_frames - todo;
+			} else {
+				for (int i = p_frames - todo; i < p_frames; ++i) {
+					p_buffer[i] = AudioFrame(0, 0);
+				}
+				active = false;
+				todo = 0;
+			}
+		}
+	}
+}
+
+float AudioStreamPlaybackCached::get_stream_sampling_rate() {
+	return sample_rate;
+}
+
+void AudioStreamPlaybackCached::start(float p_from_pos) {
+	active = true;
+	seek(p_from_pos);
+	loop_count = 0;
+	_begin_resample();
+}
+
+void AudioStreamPlaybackCached::stop() {
+	active = false;
+}
+
+bool AudioStreamPlaybackCached::is_playing() const {
+	return active;
+}
+
+int AudioStreamPlaybackCached::get_loop_count() const {
+	return loop_count;
+}
+
+float AudioStreamPlaybackCached::get_playback_position() const {
+	return float(frames_sampled) / sample_rate;
+}
+
+void AudioStreamPlaybackCached::seek(float p_time) {
+	if (!active) {
+		return;
+	}
+	if (p_time >= frame_data->size() / sample_rate) {
+		p_time = 0;
+	}
+	frames_sampled = int64_t(sample_rate * p_time);
+}
+
+////////////////////////////////
+
 void AudioStream::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_length"), &AudioStream::get_length);
 }

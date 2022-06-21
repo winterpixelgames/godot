@@ -122,6 +122,8 @@ public:
 		USAGE_2D_NO_SAMPLING,
 		USAGE_3D,
 		USAGE_3D_NO_EFFECTS,
+		USAGE_2D_NO_MIPMAPS,
+		USAGE_3D_NO_MIPMAPS,
 	};
 
 	enum RenderInfo {

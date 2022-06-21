@@ -36,6 +36,8 @@
 #include "servers/audio/audio_filter_sw.h"
 #include "servers/audio_server.h"
 
+#include <vector>
+
 class AudioStreamPlayback : public Reference {
 	GDCLASS(AudioStreamPlayback, Reference);
 
@@ -75,6 +77,35 @@ public:
 	virtual void mix(AudioFrame *p_buffer, float p_rate_scale, int p_frames);
 
 	AudioStreamPlaybackResampled() { mix_offset = 0; }
+};
+
+class AudioStreamPlaybackCached : public AudioStreamPlaybackResampled {
+	GDCLASS(AudioStreamPlaybackCached, AudioStreamPlaybackResampled);
+
+	int64_t frames_sampled{0};
+	bool active{false};
+	int loop_count{0};
+
+public:
+	const std::vector<AudioFrame> *frame_data;
+	float sample_rate{1};
+	bool loop{false};
+	float loop_offset{0};
+	//float loop_end;
+
+protected:
+	virtual void _mix_internal(AudioFrame *p_buffer, int p_frames) override;
+	virtual float get_stream_sampling_rate() override;
+
+public:
+	virtual void start(float p_from_pos = 0.0) override;
+	virtual void stop() override;
+	virtual bool is_playing() const override;
+
+	virtual int get_loop_count() const override;
+
+	virtual float get_playback_position() const override;
+	virtual void seek(float p_time) override;
 };
 
 class AudioStream : public Resource {

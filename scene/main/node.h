@@ -37,6 +37,7 @@
 #include "core/object.h"
 #include "core/project_settings.h"
 #include "core/script_language.h"
+#include "core/safe_refcount.h"
 #include "scene/main/scene_tree.h"
 
 class Viewport;
@@ -78,7 +79,7 @@ public:
 		bool operator()(const Node *p_a, const Node *p_b) const { return p_b->data.process_priority == p_a->data.process_priority ? p_b->is_greater_than(p_a) : p_b->data.process_priority > p_a->data.process_priority; }
 	};
 
-	static int orphan_node_count;
+	static SafeNumeric<int> orphan_node_count;
 
 private:
 	struct GroupData {

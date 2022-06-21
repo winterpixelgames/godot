@@ -38,13 +38,12 @@
 #include "core/object.h"
 #include "core/rid.h"
 #include "core/variant.h"
+#include "core/os/thread.h"
 
 class VisualServerCallbacks;
 
 class VisualServer : public Object {
 	GDCLASS(VisualServer, Object);
-
-	static VisualServer *singleton;
 
 	int mm_policy;
 	bool render_loop_enabled = true;
@@ -54,6 +53,8 @@ class VisualServer : public Object {
 	Array _get_array_from_surface(uint32_t p_format, PoolVector<uint8_t> p_vertex_data, int p_vertex_len, PoolVector<uint8_t> p_index_data, int p_index_len) const;
 
 protected:
+	static VisualServer *singleton;
+	
 	RID _make_test_cube();
 	void _free_internal_rids();
 	RID test_texture;
@@ -68,6 +69,7 @@ protected:
 public:
 	static VisualServer *get_singleton();
 	static VisualServer *create();
+	static void set_dummy_thread_id(Thread::ID dummy_thread_id);
 	static Vector2 norm_to_oct(const Vector3 v);
 	static Vector2 tangent_to_oct(const Vector3 v, const float sign, const bool high_precision);
 	static Vector3 oct_to_norm(const Vector2 v);
@@ -698,6 +700,8 @@ public:
 		VIEWPORT_USAGE_2D_NO_SAMPLING,
 		VIEWPORT_USAGE_3D,
 		VIEWPORT_USAGE_3D_NO_EFFECTS,
+		VIEWPORT_USAGE_2D_NO_MIPMAPS,
+		VIEWPORT_USAGE_3D_NO_MIPMAPS,
 	};
 
 	virtual void viewport_set_hdr(RID p_viewport, bool p_enabled) = 0;

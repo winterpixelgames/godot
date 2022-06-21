@@ -93,6 +93,28 @@ enum PropertyHint {
 	PROPERTY_HINT_OBJECT_TOO_BIG, ///< object is too big to send
 	PROPERTY_HINT_NODE_PATH_VALID_TYPES,
 	PROPERTY_HINT_SAVE_FILE, ///< a file path must be passed, hint_text (optionally) is a filter "*.png,*.wav,*.doc,". This opens a save dialog
+	PROPERTY_HINT_NET_COMPRESS_0,
+	PROPERTY_HINT_NET_COMPRESS_1,
+	PROPERTY_HINT_NET_COMPRESS_2,
+	PROPERTY_HINT_NET_COMPRESS_3,
+	PROPERTY_HINT_NET_COMPRESS_4,
+	PROPERTY_HINT_NET_BOOL,
+	PROPERTY_HINT_NET_INT,
+	PROPERTY_HINT_NET_UNSIGNED_INT,
+	PROPERTY_HINT_NET_REAL,
+	PROPERTY_HINT_NET_UNIT_REAL,
+	PROPERTY_HINT_NET_UNSIGNED_UNIT_REAL,
+	PROPERTY_HINT_NET_VECTOR2,
+	PROPERTY_HINT_NET_VECTOR2_NORMALIZED,
+	PROPERTY_HINT_NET_VECTOR3,
+	PROPERTY_HINT_NET_VECTOR3_NORMALIZED,
+	PROPERTY_HINT_NET_POOL_BYTE_ARRAY,
+	PROPERTY_HINT_NET_POOL_INT_ARRAY,
+	PROPERTY_HINT_NET_POOL_REAL_ARRAY,
+	PROPERTY_HINT_NET_POOL_VECTOR2_ARRAY,
+	PROPERTY_HINT_NET_POOL_VECTOR3_ARRAY,
+	PROPERTY_HINT_NET_POOL_COLOR_ARRAY,
+	PROPERTY_HINT_NET_VARIANT,
 	PROPERTY_HINT_MAX,
 	// When updating PropertyHint, also sync the hardcoded list in VisualScriptEditorVariableEdit
 };
@@ -418,6 +440,9 @@ public:
 		uint32_t flags;
 		Vector<Variant> binds;
 		bool operator<(const Connection &p_conn) const;
+		bool operator==(const Connection &p_conn) const {
+			return source == p_conn.source && signal == p_conn.signal && target == p_conn.target && method == p_conn.method;
+		}
 
 		operator Variant() const;
 		Connection() {
@@ -457,7 +482,7 @@ private:
 			int reference_count;
 			Connection conn;
 			List<Connection>::Element *cE;
-			Slot() { reference_count = 0; }
+			Slot() { reference_count = 0; cE = NULL; }
 		};
 
 		MethodInfo user;

@@ -1958,6 +1958,7 @@ Error EditorExportPlatformIOS::export_project(const Ref<EditorExportPreset> &p_p
 	archive_args.push_back("generic/platform=iOS");
 	archive_args.push_back("archive");
 	archive_args.push_back("-archivePath");
+	archive_args.push_back("-allowProvisioningUpdates");
 	archive_args.push_back(archive_path);
 	err = OS::get_singleton()->execute("xcodebuild", archive_args, true);
 	ERR_FAIL_COND_V(err, err);

@@ -45,7 +45,7 @@
 
 VARIANT_ENUM_CAST(Node::PauseMode);
 
-int Node::orphan_node_count = 0;
+SafeNumeric<int> Node::orphan_node_count;
 
 void Node::_notification(int p_notification) {
 	switch (p_notification) {
@@ -89,7 +89,7 @@ void Node::_notification(int p_notification) {
 			}
 
 			get_tree()->node_count++;
-			orphan_node_count--;
+			orphan_node_count.decrement();
 
 		} break;
 		case NOTIFICATION_EXIT_TREE: {
@@ -97,7 +97,7 @@ void Node::_notification(int p_notification) {
 			ERR_FAIL_COND(!get_tree());
 
 			get_tree()->node_count--;
-			orphan_node_count++;
+			orphan_node_count.increment();
 
 			if (data.input) {
 				remove_from_group("_vp_input" + itos(get_viewport()->get_instance_id()));
@@ -2954,7 +2954,7 @@ Node::Node() {
 	data.ready_first = true;
 	data.editable_instance = false;
 
-	orphan_node_count++;
+	orphan_node_count.increment();
 }
 
 Node::~Node() {
@@ -2965,7 +2965,7 @@ Node::~Node() {
 	ERR_FAIL_COND(data.parent);
 	ERR_FAIL_COND(data.children.size());
 
-	orphan_node_count--;
+	orphan_node_count.decrement();
 }
 
 ////////////////////////////////

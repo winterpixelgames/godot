@@ -297,7 +297,7 @@ class OS_Windows : public OS {
 	int key_event_pos;
 
 	uint64_t ticks_start;
-	uint64_t ticks_per_second;
+	uint64_t ticks_per_second = 1000;
 
 	bool old_invalid;
 	bool outside;

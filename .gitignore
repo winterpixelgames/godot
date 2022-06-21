@@ -22,6 +22,7 @@ platform/android/java/app/libs/*
 platform/android/java/libs/*
 platform/android/java/lib/.cxx/
 platform/android/java/nativeSrcsConfigs/.cxx/
+platform/android/java/?/
 
 # General c++ generated files
 *.lib

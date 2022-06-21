@@ -38,8 +38,10 @@ static void my_debug(void *ctx, int level,
 }
 
 void SSLContextMbedTLS::print_mbedtls_error(int p_ret) {
-	printf("mbedtls error: returned -0x%x\n\n", -p_ret);
-	fflush(stdout);
+	if(p_ret != MBEDTLS_ERR_SSL_INTERNAL_ERROR) {
+		printf("mbedtls error: returned -0x%x\n\n", -p_ret);
+		fflush(stdout);
+	}
 }
 
 /// CookieContextMbedTLS

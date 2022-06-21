@@ -5699,6 +5699,7 @@ int EditorNode::execute_and_show_output(const String &p_title, const String &p_p
 		if (prev_len != eta.output.length()) {
 			String to_add = eta.output.substr(prev_len, eta.output.length());
 			prev_len = eta.output.length();
+			print_verbose(to_add);
 			execute_outputs->add_text(to_add);
 			Main::iteration();
 		}
@@ -5708,6 +5709,8 @@ int EditorNode::execute_and_show_output(const String &p_title, const String &p_p
 
 	eta.execute_output_thread.wait_to_finish();
 	execute_outputs->add_text("\nExit Code: " + itos(eta.exitcode));
+	
+	print_verbose("Exit Code: " + itos(eta.exitcode));
 
 	if (p_close_on_errors && eta.exitcode != 0) {
 		execute_output_dialog->hide();

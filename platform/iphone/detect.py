@@ -61,6 +61,8 @@ def configure(env):
         env.Append(CCFLAGS=["-gdwarf-2", "-O0"])
         env.Append(CPPDEFINES=["_DEBUG", ("DEBUG", 1)])
 
+    env.Prepend(CCFLAGS=["-g"])  # always debug symbols on iOS
+
     if env["use_lto"]:
         env.Append(CCFLAGS=["-flto"])
         env.Append(LINKFLAGS=["-flto"])

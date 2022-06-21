@@ -619,9 +619,16 @@ void CanvasItem::update() {
 		return;
 	}
 
-	pending_update = true;
+	// Only do this, when on the main thread (main thread pumps )
+	if(Thread::get_caller_id() == Thread::get_main_id()) {
+		pending_update = true;
 
-	MessageQueue::get_singleton()->push_call(this, "_update_callback");
+		MessageQueue::get_singleton()->push_call(this, "_update_callback");
+	}
+	else {
+		// Suppress this error, but we gotta figure this out properly in tankkings
+		//ERR_FAIL_MSG("WINTERPIXEL update can't be called in any thread other than main");
+	}
 }
 
 void CanvasItem::set_modulate(const Color &p_modulate) {

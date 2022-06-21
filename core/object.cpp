@@ -39,6 +39,7 @@
 #include "core/resource.h"
 #include "core/script_language.h"
 #include "core/translation.h"
+#include <cassert>
 
 #ifdef DEBUG_ENABLED
 
@@ -1975,7 +1976,14 @@ Object::~Object() {
 	//signals from nodes that connect to this node
 	while (connections.size()) {
 		Connection c = connections.front()->get();
+		assert(c.target == this);
 		c.source->_disconnect(c.signal, c.target, c.method, true);
+		
+		// The above _disconnect can error out (which doesn't modify this object's connections list)
+		// We will get stuck in an infinite while look if _disconnect fails early
+		if(connections.find(c)) {
+			connections.erase(c);
+		}
 	}
 
 	ObjectDB::remove_instance(this);

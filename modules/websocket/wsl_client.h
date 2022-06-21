@@ -43,6 +43,15 @@
 class WSLClient : public WebSocketClient {
 	GDCIIMPL(WSLClient, WebSocketClient);
 
+public:
+	enum Status {
+
+		STATUS_DISCONNECTED,
+		STATUS_RESOLVING, // Resolving hostname (if passed a hostname)
+		STATUS_RESOLVED,
+		STATUS_CONNECTED
+	};
+
 private:
 	int _in_buf_size;
 	int _in_pkt_size;
@@ -63,10 +72,17 @@ private:
 
 	String _key;
 	String _host;
-	int _port;
+	uint16_t _port;
+	String _path;
 	Array ip_candidates;
 	Vector<String> _protocols;
+	Vector<String> _original_protocols;
+	Vector<String> _custom_headers;
+	IP_Address _addr;
 	bool _use_ssl;
+
+	Status _status;
+	IP::ResolverID _resolving;
 
 	void _do_handshake();
 	bool _verify_headers(String &r_protocol);

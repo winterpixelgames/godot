@@ -1429,6 +1429,72 @@
 		<constant name="PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS" value="22" enum="PropertyHint">
 			Hints that an image is compressed using lossless compression.
 		</constant>
+		<constant name="PROPERTY_HINT_NET_COMPRESS_0" value="23" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_COMPRESS_1" value="24" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_COMPRESS_2" value="25" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_COMPRESS_3" value="26" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_COMPRESS_4" value="27" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_BOOL" value="28" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_INT" value="29" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_UNSIGNED_INT" value="30" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_REAL" value="31" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_UNIT_REAL" value="32" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_UNSIGNED_UNIT_REAL" value="33" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_VECTOR2" value="34" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_VECTOR2_NORMALIZED" value="35" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_VECTOR3" value="36" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_VECTOR3_NORMALIZED" value="37" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_POOL_BYTE_ARRAY" value="38" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_POOL_INT_ARRAY" value="39" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_POOL_REAL_ARRAY" value="40" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_POOL_VECTOR2_ARRAY" value="41" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_POOL_VECTOR3_ARRAY" value="42" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_POOL_COLOR_ARRAY" value="43" enum="PropertyHint">
+			TODO
+		</constant>
+		<constant name="PROPERTY_HINT_NET_VARIANT" value="44" enum="PropertyHint">
+			TODO
+		</constant>
 		<constant name="PROPERTY_USAGE_STORAGE" value="1" enum="PropertyUsageFlags">
 			The property is serialized and saved in the scene file (default).
 		</constant>

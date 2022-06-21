@@ -58,7 +58,7 @@ public:
 	};
 
 	enum {
-		RESOLVER_MAX_QUERIES = 32,
+		RESOLVER_MAX_QUERIES = 64,
 		RESOLVER_INVALID_ID = -1
 	};
 

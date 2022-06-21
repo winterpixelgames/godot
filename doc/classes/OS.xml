@@ -413,6 +413,20 @@
 				Returns the amount of static memory being used by the program in bytes.
 			</description>
 		</method>
+		<method name="get_alloc_count_per_frame" qualifiers="const">
+			<return type="int">
+			</return>
+			<description>
+				Returns the number of memory allocations done in previous frame.
+			</description>
+		</method>
+		<method name="get_memory_time_per_frame" qualifiers="const">
+			<return type="float">
+			</return>
+			<description>
+				Returns the time spent allocating and freeing memory (milliseconds) in previous frame.
+			</description>
+		</method>
 		<method name="get_system_dir" qualifiers="const">
 			<return type="String" />
 			<argument index="0" name="dir" type="int" enum="OS.SystemDir" />
@@ -924,7 +938,18 @@
 				Shows the virtual keyboard if the platform has one.
 				The [code]existing_text[/code] parameter is useful for implementing your own [LineEdit] or [TextEdit], as it tells the virtual keyboard what text has already been typed (the virtual keyboard uses it for auto-correct and predictions).
 				The [code]multiline[/code] parameter needs to be set to [code]true[/code] to be able to enter multiple lines of text, as in [TextEdit].
-				[b]Note:[/b] This method is implemented on Android, iOS and UWP.
+				[b]Note:[/b] This method is implemented on Android, iOS, UWP, and HTML5.
+			</description>
+		</method>
+		<method name="show_virtual_keyboard_type">
+			<return type="void" />
+			<argument index="0" name="existing_text" type="String" default="&quot;&quot;" />
+			<argument index="1" name="type" type="int" enum="OS.VirtualKeyboardType" default="0" />
+			<description>
+				Shows the virtual keyboard if the platform has one.
+				The [code]existing_text[/code] parameter is useful for implementing your own [LineEdit] or [TextEdit], as it tells the virtual keyboard what text has already been typed (the virtual keyboard uses it for auto-correct and predictions).
+				The [code]type[/code] parameter allows selecting which virtual keyboard to show.
+				[b]Note:[/b] This method is implemented on Android, iOS, UWP, and HTML5.
 			</description>
 		</method>
 	</methods>
@@ -1113,6 +1138,32 @@
 		</constant>
 		<constant name="SCREEN_ORIENTATION_SENSOR" value="6" enum="ScreenOrientation">
 			Uses most suitable orientation based on the hardware sensor.
+		</constant>
+		<constant name="KEYBOARD_TYPE_DEFAULT" value="0" enum="VirtualKeyboardType">
+			Default text virtual keyboard.
+		</constant>
+		<constant name="KEYBOARD_TYPE_MULTILINE" value="1" enum="VirtualKeyboardType">
+			Multiline virtual keyboard.
+		</constant>
+		<constant name="KEYBOARD_TYPE_NUMBER" value="2" enum="VirtualKeyboardType">
+			Virtual number keypad, useful for PIN entry.
+		</constant>
+		<constant name="KEYBOARD_TYPE_NUMBER_DECIMAL" value="3" enum="VirtualKeyboardType">
+			Virtual number keypad, useful for entering fractional numbers.
+		</constant>
+		<constant name="KEYBOARD_TYPE_PHONE" value="4" enum="VirtualKeyboardType">
+			Virtual phone number keypad.
+		</constant>
+		<constant name="KEYBOARD_TYPE_EMAIL_ADDRESS" value="5" enum="VirtualKeyboardType">
+			Virtual keyboard with additional keys to assist with typing email addresses.
+		</constant>
+		<constant name="KEYBOARD_TYPE_PASSWORD" value="6" enum="VirtualKeyboardType">
+			Virtual keyboard for entering a password. On most platforms, this should disable autocomplete and autocapitalization.
+
+			[b]Note:[/b] This is not supported on HTML5 or below iOS version 11.0. Instead, this will behave identically to [constant KEYBOARD_TYPE_DEFAULT].
+		</constant>
+		<constant name="KEYBOARD_TYPE_URL" value="7" enum="VirtualKeyboardType">
+			Virtual keyboard with additional keys to assist with typing URLs.
 		</constant>
 		<constant name="SYSTEM_DIR_DESKTOP" value="0" enum="SystemDir">
 			Desktop directory path.

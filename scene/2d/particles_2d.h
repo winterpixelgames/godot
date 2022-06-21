@@ -57,6 +57,7 @@ private:
 	float speed_scale;
 	Rect2 visibility_rect;
 	bool local_coords;
+	Transform2D custom_relative_xform;
 	int fixed_fps;
 	bool fractional_delta;
 
@@ -84,6 +85,7 @@ public:
 	void set_randomness_ratio(float p_ratio);
 	void set_visibility_rect(const Rect2 &p_visibility_rect);
 	void set_use_local_coordinates(bool p_enable);
+	void set_custom_relative_transform(const Transform2D &p_xform);
 	void set_process_material(const Ref<Material> &p_material);
 	void set_speed_scale(float p_scale);
 
@@ -96,6 +98,7 @@ public:
 	float get_randomness_ratio() const;
 	Rect2 get_visibility_rect() const;
 	bool get_use_local_coordinates() const;
+	Transform2D get_custom_relative_transform() const;
 	Ref<Material> get_process_material() const;
 	float get_speed_scale() const;
 

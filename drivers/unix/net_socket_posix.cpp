@@ -291,6 +291,7 @@ void NetSocketPosix::_set_socket(SOCKET_TYPE p_sock, IP::Type p_ip_type, bool p_
 
 void NetSocketPosix::_set_close_exec_enabled(bool p_enabled) {
 #ifndef WINDOWS_ENABLED
+#ifndef __EMSCRIPTEN__
 	// Enable close on exec to avoid sharing with subprocesses. Off by default on Windows.
 #if defined(NO_FCNTL)
 	unsigned long par = p_enabled ? 1 : 0;
@@ -298,6 +299,7 @@ void NetSocketPosix::_set_close_exec_enabled(bool p_enabled) {
 #else
 	int opts = fcntl(_sock, F_GETFD);
 	fcntl(_sock, F_SETFD, opts | FD_CLOEXEC);
+#endif
 #endif
 #endif
 }
@@ -614,6 +616,43 @@ Error NetSocketPosix::sendto(const uint8_t *p_buffer, int p_len, int &r_sent, IP
 
 		return FAILED;
 	}
+
+	return OK;
+}
+
+Error NetSocketPosix::sendmsg(const NetSocketBuffer *p_buffers, int p_len, int &r_sent, IP_Address p_ip, uint16_t p_port) {
+	ERR_FAIL_COND_V(!is_open(), ERR_UNCONFIGURED);
+
+	struct sockaddr_storage addr;
+	size_t addr_size = _set_addr_storage(&addr, p_ip, p_port, _ip_type);
+
+#ifdef WINDOWS_ENABLED
+	DWORD sentLength = 0;
+	if (WSASendTo(_sock,  (LPWSABUF)p_buffers, (DWORD)p_len, &sentLength, 0, (struct sockaddr *)&addr, addr_size, NULL, NULL) == SOCKET_ERROR) {
+		NetError err = _get_socket_error();
+		if (err == ERR_NET_WOULD_BLOCK)
+			return ERR_BUSY;
+
+		return FAILED;
+    }
+	r_sent = (int)sentLength;
+#else
+	struct msghdr msgHdr;
+	memset (& msgHdr, 0, sizeof (struct msghdr));
+	msgHdr.msg_name = (struct sockaddr *)&addr;
+	msgHdr.msg_namelen = addr_size;
+	msgHdr.msg_iov = (struct iovec *) p_buffers;
+	msgHdr.msg_iovlen = (int)p_len;
+	
+	r_sent = ::sendmsg(_sock, &msgHdr, 0);
+	if (r_sent < 0) {
+ 		NetError err = _get_socket_error();
+		if (err == ERR_NET_WOULD_BLOCK)
+			return ERR_BUSY;
+
+		return FAILED;
+	}
+#endif
 
 	return OK;
 }

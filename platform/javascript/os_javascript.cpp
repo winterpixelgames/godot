@@ -277,6 +277,9 @@ int OS_JavaScript::mouse_button_callback(int p_pressed, int p_button, double p_x
 	int mask = os->input->get_mouse_button_mask();
 	int button_flag = 1 << (ev->get_button_index() - 1);
 	if (ev->is_pressed()) {
+		// Since the event is consumed, focus manually.  The containing iframe,
+		// if exists, may not have focus yet, so focus even if already focused.
+		godot_js_display_canvas_focus();
 		mask |= button_flag;
 	} else if (mask & button_flag) {
 		mask &= ~button_flag;
@@ -501,15 +504,22 @@ int OS_JavaScript::mouse_wheel_callback(double p_delta_x, double p_delta_y) {
 	ev->set_alt(input->is_key_pressed(KEY_ALT));
 	ev->set_control(input->is_key_pressed(KEY_CONTROL));
 	ev->set_metakey(input->is_key_pressed(KEY_META));
-
-	if (p_delta_y < 0) {
-		ev->set_button_index(BUTTON_WHEEL_UP);
-	} else if (p_delta_y > 0) {
-		ev->set_button_index(BUTTON_WHEEL_DOWN);
-	} else if (p_delta_x > 0) {
-		ev->set_button_index(BUTTON_WHEEL_LEFT);
-	} else if (p_delta_x < 0) {
-		ev->set_button_index(BUTTON_WHEEL_RIGHT);
+	
+	float scroll_factor = 1.0;
+	if (fabs(p_delta_y) > 0) {
+		ev->set_factor(fabs(p_delta_y) * scroll_factor);
+		if (p_delta_y < 0) {
+			ev->set_button_index(BUTTON_WHEEL_UP);
+		} else {
+			ev->set_button_index(BUTTON_WHEEL_DOWN);	
+		}
+	} else if (fabs(p_delta_x) > 0) {
+		ev->set_factor(fabs(p_delta_x) * scroll_factor);
+		if (p_delta_x > 0) {
+			ev->set_button_index(BUTTON_WHEEL_LEFT);
+		} else if (p_delta_x < 0) {
+			ev->set_button_index(BUTTON_WHEEL_RIGHT);
+		}
 	} else {
 		return false;
 	}
@@ -696,6 +706,7 @@ Error OS_JavaScript::initialize(const VideoMode &p_desired, int p_video_driver, 
 	attributes.alpha = GLOBAL_GET("display/window/per_pixel_transparency/allowed");
 	attributes.antialias = false;
 	attributes.explicitSwapControl = true;
+	attributes.powerPreference = EM_WEBGL_POWER_PREFERENCE_HIGH_PERFORMANCE;
 	ERR_FAIL_INDEX_V(p_video_driver, VIDEO_DRIVER_MAX, ERR_INVALID_PARAMETER);
 
 	if (p_desired.layered) {
@@ -755,8 +766,10 @@ Error OS_JavaScript::initialize(const VideoMode &p_desired, int p_video_driver, 
 
 	AudioDriverManager::initialize(p_audio_driver);
 	visual_server = memnew(VisualServerRaster());
-#ifndef NO_THREADS
-	visual_server = memnew(VisualServerWrapMT(visual_server, false));
+#ifndef NO_THREADS	
+	if (get_render_thread_mode() != RENDER_THREAD_UNSAFE) {
+		visual_server = memnew(VisualServerWrapMT(visual_server, false));
+	}
 #endif
 	input = memnew(InputDefault);
 
@@ -810,8 +823,8 @@ bool OS_JavaScript::has_virtual_keyboard() const {
 	return godot_js_display_vk_available() != 0;
 }
 
-void OS_JavaScript::show_virtual_keyboard(const String &p_existing_text, const Rect2 &p_screen_rect, bool p_multiline, int p_max_input_length, int p_cursor_start, int p_cursor_end) {
-	godot_js_display_vk_show(p_existing_text.utf8().get_data(), p_multiline, p_cursor_start, p_cursor_end);
+void OS_JavaScript::show_virtual_keyboard(const String &p_existing_text, const Rect2 &p_screen_rect, VirtualKeyboardType p_type, int p_max_input_length, int p_cursor_start, int p_cursor_end) {
+	godot_js_display_vk_show(p_existing_text.utf8().get_data(), p_type, p_cursor_start, p_cursor_end);
 }
 
 void OS_JavaScript::hide_virtual_keyboard() {

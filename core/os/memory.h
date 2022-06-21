@@ -47,7 +47,12 @@ class Memory {
 	static SafeNumeric<uint64_t> max_usage;
 #endif
 
-	static SafeNumeric<uint64_t> alloc_count;
+	static SafeNumeric<uint64_t> prev_frame_alloc_count;
+	static SafeNumeric<uint64_t> frame_alloc_count;
+#ifdef DEBUG_ENABLED
+	static double prev_frame_memory_time;
+	static double frame_memory_time;
+#endif
 
 public:
 	static void *alloc_static(size_t p_bytes, bool p_pad_align = false);
@@ -57,6 +62,9 @@ public:
 	static uint64_t get_mem_available();
 	static uint64_t get_mem_usage();
 	static uint64_t get_mem_max_usage();
+	static uint64_t get_alloc_count_per_frame();
+	static float get_memory_time_per_frame();
+	static void reset_memory_frame_counters();
 };
 
 class DefaultAllocator {

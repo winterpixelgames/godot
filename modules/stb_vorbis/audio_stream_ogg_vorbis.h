@@ -85,6 +85,7 @@ class AudioStreamOGGVorbis : public AudioStream {
 	float length;
 	bool loop;
 	float loop_offset;
+	bool decode_once;
 	void clear_data();
 
 protected:
@@ -96,6 +97,9 @@ public:
 
 	void set_loop_offset(float p_seconds);
 	float get_loop_offset() const;
+
+	void set_decode_once(bool p_enable);
+	bool get_decode_once() const;
 
 	virtual Ref<AudioStreamPlayback> instance_playback();
 	virtual String get_stream_name() const;

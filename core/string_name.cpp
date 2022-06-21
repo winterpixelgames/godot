@@ -85,8 +85,8 @@ void StringName::cleanup() {
 void StringName::unref() {
 	ERR_FAIL_COND(!configured);
 
+	lock.lock();
 	if (_data && _data->refcount.unref()) {
-		lock.lock();
 
 		if (_data->prev) {
 			_data->prev->next = _data->next;
@@ -101,10 +101,10 @@ void StringName::unref() {
 			_data->next->prev = _data->prev;
 		}
 		memdelete(_data);
-		lock.unlock();
 	}
 
 	_data = nullptr;
+	lock.unlock();
 }
 
 bool StringName::operator==(const String &p_name) const {

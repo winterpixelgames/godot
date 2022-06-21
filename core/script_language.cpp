@@ -40,6 +40,7 @@ bool ScriptServer::scripting_enabled = true;
 bool ScriptServer::reload_scripts_on_save = false;
 bool ScriptServer::languages_finished = false;
 ScriptEditRequestFunction ScriptServer::edit_request_func = nullptr;
+RWLock ScriptServer::lock;
 
 void Script::_notification(int p_what) {
 	if (p_what == NOTIFICATION_POSTINITIALIZE) {
@@ -128,17 +129,20 @@ bool ScriptServer::is_scripting_enabled() {
 }
 
 ScriptLanguage *ScriptServer::get_language(int p_idx) {
+	RWLockRead l(lock);
 	ERR_FAIL_INDEX_V(p_idx, _language_count, nullptr);
 
 	return _languages[p_idx];
 }
 
 void ScriptServer::register_language(ScriptLanguage *p_language) {
+	RWLockWrite l(lock);
 	ERR_FAIL_COND(_language_count >= MAX_LANGUAGES);
 	_languages[_language_count++] = p_language;
 }
 
 void ScriptServer::unregister_language(ScriptLanguage *p_language) {
+	RWLockWrite l(lock);
 	for (int i = 0; i < _language_count; i++) {
 		if (_languages[i] == p_language) {
 			_language_count--;
@@ -151,6 +155,7 @@ void ScriptServer::unregister_language(ScriptLanguage *p_language) {
 }
 
 void ScriptServer::init_languages() {
+	RWLockWrite l(lock);	
 	{ //load global classes
 		global_classes_clear();
 		if (ProjectSettings::get_singleton()->has_setting("_global_script_classes")) {
@@ -172,6 +177,7 @@ void ScriptServer::init_languages() {
 }
 
 void ScriptServer::finish_languages() {
+	RWLockWrite l(lock);
 	for (int i = 0; i < _language_count; i++) {
 		_languages[i]->finish();
 	}
@@ -188,12 +194,14 @@ bool ScriptServer::is_reload_scripts_on_save_enabled() {
 }
 
 void ScriptServer::thread_enter() {
+	RWLockRead l(lock);
 	for (int i = 0; i < _language_count; i++) {
 		_languages[i]->thread_enter();
 	}
 }
 
 void ScriptServer::thread_exit() {
+	RWLockRead l(lock);
 	for (int i = 0; i < _language_count; i++) {
 		_languages[i]->thread_exit();
 	}

@@ -32,6 +32,9 @@
 
 #include "core/os/file_access.h"
 
+#include <unordered_map>
+#include <cassert>
+
 void AudioStreamPlaybackOGGVorbis::_mix_internal(AudioFrame *p_buffer, int p_frames) {
 	ERR_FAIL_COND(!active);
 
@@ -119,7 +122,29 @@ AudioStreamPlaybackOGGVorbis::~AudioStreamPlaybackOGGVorbis() {
 	}
 }
 
+struct StringHasher {
+	std::size_t operator()(const String& k) const {
+		return k.hash64();
+	}
+};
+std::unordered_map<String, std::vector<AudioFrame>, StringHasher> playback_data_cache;
+
 Ref<AudioStreamPlayback> AudioStreamOGGVorbis::instance_playback() {
+	Ref<AudioStreamPlaybackCached> pc;
+	if (decode_once && !Engine::get_singleton()->is_editor_hint()) {
+		pc.instance();
+		pc->sample_rate = this->sample_rate;
+		pc->loop = this->loop;
+		pc->loop_offset = this->loop_offset;
+
+		// Return cached decoded buffer if exists
+		auto cached = playback_data_cache.find(get_path());
+		if (cached != playback_data_cache.end()) {
+			pc->frame_data = &(cached->second);
+			return pc;
+		}
+	}
+
 	Ref<AudioStreamPlaybackOGGVorbis> ovs;
 
 	ERR_FAIL_COND_V_MSG(data == nullptr, ovs,
@@ -140,6 +165,22 @@ Ref<AudioStreamPlayback> AudioStreamOGGVorbis::instance_playback() {
 		AudioServer::get_singleton()->audio_data_free(ovs->ogg_alloc.alloc_buffer);
 		ovs->ogg_alloc.alloc_buffer = nullptr;
 		ERR_FAIL_COND_V(!ovs->ogg_stream, Ref<AudioStreamPlaybackOGGVorbis>());
+	}
+
+	if (decode_once && !Engine::get_singleton()->is_editor_hint()) {
+		// create new empty vector in the cache
+		std::vector<AudioFrame> *frame_data = &(playback_data_cache[this->get_path()]);
+		assert(frame_data->size() == 0);
+
+		// decode ogg to native
+		int frames = int(this->length * this->sample_rate);
+		frame_data->resize(frames);
+		ovs->active = true;
+		ovs->_mix_internal(frame_data->data(), frames);
+		ovs->active = false;
+
+		pc->frame_data = frame_data; // unordered_map references are never invalidated
+		return pc;
 	}
 
 	return ovs;
@@ -242,6 +283,14 @@ float AudioStreamOGGVorbis::get_loop_offset() const {
 	return loop_offset;
 }
 
+void AudioStreamOGGVorbis::set_decode_once(bool p_enable) {
+	decode_once = p_enable;
+}
+
+bool AudioStreamOGGVorbis::get_decode_once() const {
+	return decode_once;
+}
+
 float AudioStreamOGGVorbis::get_length() const {
 	return length;
 }
@@ -256,9 +305,13 @@ void AudioStreamOGGVorbis::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_loop_offset", "seconds"), &AudioStreamOGGVorbis::set_loop_offset);
 	ClassDB::bind_method(D_METHOD("get_loop_offset"), &AudioStreamOGGVorbis::get_loop_offset);
 
+	ClassDB::bind_method(D_METHOD("set_decode_once", "enable"), &AudioStreamOGGVorbis::set_decode_once);
+	ClassDB::bind_method(D_METHOD("get_decode_once"), &AudioStreamOGGVorbis::get_decode_once);
+
 	ADD_PROPERTY(PropertyInfo(Variant::POOL_BYTE_ARRAY, "data", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NOEDITOR), "set_data", "get_data");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "loop"), "set_loop", "has_loop");
 	ADD_PROPERTY(PropertyInfo(Variant::REAL, "loop_offset"), "set_loop_offset", "get_loop_offset");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "decode_once"), "set_decode_once", "get_decode_once");
 }
 
 AudioStreamOGGVorbis::AudioStreamOGGVorbis() {
@@ -268,6 +321,7 @@ AudioStreamOGGVorbis::AudioStreamOGGVorbis() {
 	sample_rate = 1;
 	channels = 1;
 	loop_offset = 0;
+	decode_once = true;
 	decode_mem_size = 0;
 	loop = false;
 }

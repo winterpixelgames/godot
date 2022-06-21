@@ -73,7 +73,7 @@ const GodotDisplayVK = {
 			GodotDisplayVK.textarea = create('textarea');
 			GodotDisplayVK.updateSize();
 		},
-		show: function (text, multiline, start, end) {
+		show: function (text, type, start, end) {
 			if (!GodotDisplayVK.textinput || !GodotDisplayVK.textarea) {
 				return;
 			}
@@ -81,7 +81,37 @@ const GodotDisplayVK = {
 				GodotDisplayVK.hide();
 			}
 			GodotDisplayVK.updateSize();
-			const elem = multiline ? GodotDisplayVK.textarea : GodotDisplayVK.textinput;
+
+			let elem = GodotDisplayVK.textinput;
+			switch (type) {
+			case 0: // KEYBOARD_TYPE_DEFAULT
+				elem.inputmode = 'text';
+				break;
+			case 1: // KEYBOARD_TYPE_MULTILINE
+				elem = GodotDisplayVK.textarea;
+				break;
+			case 2: // KEYBOARD_TYPE_NUMBER
+				elem.inputmode = 'numeric';
+				break;
+			case 3: // KEYBOARD_TYPE_NUMBER_DECIMAL
+				elem.inputmode = 'decimal';
+				break;
+			case 4: // KEYBOARD_TYPE_PHONE
+				elem.inputmode = 'tel';
+				break;
+			case 5: // KEYBOARD_TYPE_EMAIL_ADDRESS
+				elem.inputmode = 'email';
+				break;
+			case 6: // KEYBOARD_TYPE_PASSWORD
+				elem.inputmode = 'text';
+				break;
+			case 7: // KEYBOARD_TYPE_URL
+				elem.inputmode = 'url';
+				break;
+			default:
+				elem.inputmode = 'text';
+				break;
+			}
 			elem.readonly = false;
 			elem.disabled = false;
 			elem.value = text;
@@ -378,8 +408,14 @@ const GodotDisplay = {
 	},
 
 	godot_js_display_window_size_get: function (p_width, p_height) {
-		GodotRuntime.setHeapValue(p_width, GodotConfig.canvas.width, 'i32');
-		GodotRuntime.setHeapValue(p_height, GodotConfig.canvas.height, 'i32');
+		if(GodotConfig.canvas == null) {
+			GodotRuntime.setHeapValue(p_width, 1024, 'i32');
+			GodotRuntime.setHeapValue(p_height, 1024, 'i32');	
+		}
+		else {
+			GodotRuntime.setHeapValue(p_width, GodotConfig.canvas.width, 'i32');
+			GodotRuntime.setHeapValue(p_height, GodotConfig.canvas.height, 'i32');
+		}
 	},
 
 	godot_js_display_has_webgl__sig: 'ii',
@@ -583,6 +619,10 @@ const GodotDisplay = {
 			alert('WebGL context lost, please reload the page'); // eslint-disable-line no-alert
 			ev.preventDefault();
 		}, false);
+		GodotEventListeners.add(canvas, 'webglcontextrestored', function (ev) {
+			alert('WebGL context restored, please reload the page'); // eslint-disable-line no-alert
+			ev.preventDefault();
+		}, false);
 		GodotDisplayScreen.hidpi = !!p_hidpi;
 		switch (GodotConfig.canvas_resize_policy) {
 		case 0: // None
@@ -608,11 +648,11 @@ const GodotDisplay = {
 	 * Virtual Keyboard
 	 */
 	godot_js_display_vk_show__sig: 'viiii',
-	godot_js_display_vk_show: function (p_text, p_multiline, p_start, p_end) {
+	godot_js_display_vk_show: function (p_text, p_type, p_start, p_end) {
 		const text = GodotRuntime.parseString(p_text);
 		const start = p_start > 0 ? p_start : 0;
 		const end = p_end > 0 ? p_end : start;
-		GodotDisplayVK.show(text, p_multiline, start, end);
+		GodotDisplayVK.show(text, p_type, start, end);
 	},
 
 	godot_js_display_vk_hide__sig: 'v',

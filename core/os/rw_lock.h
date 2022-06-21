@@ -33,9 +33,10 @@
 
 #include "core/error_list.h"
 
-#if !defined(NO_THREADS)
+#if (!defined(NO_THREADS)) && (!defined(__EMSCRIPTEN__))
 
 #include <shared_mutex>
+#include <atomic>
 
 class RWLock {
 	mutable std::shared_timed_mutex mutex;
@@ -74,17 +75,85 @@ public:
 
 #else
 
+#if defined(NO_THREADS)
 class RWLock {
+	
 public:
-	void read_lock() const {}
-	void read_unlock() const {}
-	Error read_try_lock() const { return OK; }
+	void read_lock() const noexcept { 
+	
+	}
+	void read_unlock() const noexcept { 
+		
+	 }
+	Error read_try_lock() const noexcept { 
+		return Error::OK;
+	}
 
-	void write_lock() {}
-	void write_unlock() {}
-	Error write_try_lock() { return OK; }
+	void write_lock() noexcept { 
+		
+	 }
+	void write_unlock() noexcept { 
+		
+	 }
+	Error write_try_lock() noexcept { 
+		return Error::OK;
+	}
 };
+#else
+// https://rigtorp.se/spinlock/
+class RWLock {
+	mutable std::atomic<bool> lock_ = {0};
+	
+public:
+	void read_lock() const noexcept { 
+		for (;;) {
+      // Optimistically assume the lock is free on the first try
+      if (!lock_.exchange(true, std::memory_order_acquire)) {
+        return;
+      }
+      // Wait for lock to be released without generating cache misses
+      while (lock_.load(std::memory_order_relaxed)) {
+        // Issue X86 PAUSE or ARM YIELD instruction to reduce contention between
+        // hyper-threads
+        //__builtin_ia32_pause();
+      }
+    }
+	 }
+	void read_unlock() const noexcept { 
+		lock_.store(false, std::memory_order_release);
+	 }
+	Error read_try_lock() const noexcept { 
+		// First do a relaxed load to check if lock is free in order to prevent
+    // unnecessary cache misses if someone does while(!try_lock())
+    return (Error)(!lock_.load(std::memory_order_relaxed) &&
+           !lock_.exchange(true, std::memory_order_acquire));
+	}
 
+	void write_lock() noexcept { 
+		for (;;) {
+      // Optimistically assume the lock is free on the first try
+      if (!lock_.exchange(true, std::memory_order_acquire)) {
+        return;
+      }
+      // Wait for lock to be released without generating cache misses
+      while (lock_.load(std::memory_order_relaxed)) {
+        // Issue X86 PAUSE or ARM YIELD instruction to reduce contention between
+        // hyper-threads
+        //__builtin_ia32_pause();
+      }
+    }
+	 }
+	void write_unlock() noexcept { 
+		lock_.store(false, std::memory_order_release);
+	 }
+	Error write_try_lock() noexcept { 
+		// First do a relaxed load to check if lock is free in order to prevent
+    // unnecessary cache misses if someone does while(!try_lock())
+    return (Error)(!lock_.load(std::memory_order_relaxed) &&
+           !lock_.exchange(true, std::memory_order_acquire));
+	}
+};
+#endif
 #endif
 
 class RWLockRead {

@@ -34,6 +34,10 @@
 #include "gdscript.h"
 #include "gdscript_functions.h"
 
+#ifndef WINTERPIXEL_ERR_CHECKS
+#define WINTERPIXEL_ERR_CHECKS 1
+#endif
+
 Variant *GDScriptFunction::_get_variant(int p_address, GDScriptInstance *p_instance, GDScript *p_script, Variant &self, Variant &static_ref, Variant *p_stack, String &r_error) const {
 	int address = p_address & ADDR_MASK;
 
@@ -126,7 +130,7 @@ Variant *GDScriptFunction::_get_variant(int p_address, GDScriptInstance *p_insta
 	return nullptr;
 }
 
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || WINTERPIXEL_ERR_CHECKS
 static String _get_var_type(const Variant *p_var) {
 	String basestr;
 
@@ -364,7 +368,7 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 		}
 	}
 
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || WINTERPIXEL_ERR_CHECKS
 	Variant instance = p_instance;
 #endif
 	static_ref = script;
@@ -414,6 +418,8 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 		profile.call_count++;
 		profile.frame_call_count++;
 	}
+#endif
+#if defined(DEBUG_ENABLED) || WINTERPIXEL_ERR_CHECKS
 	bool exit_ok = false;
 	bool yielded = false;
 #endif
@@ -546,7 +552,7 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 				bool valid;
 				dst->set(*index, *value, &valid);
 
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || WINTERPIXEL_ERR_CHECKS
 				if (!valid) {
 					String v = index->operator String();
 					if (v != "") {
@@ -570,14 +576,14 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 				GET_VARIANT_PTR(dst, 3);
 
 				bool valid;
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || WINTERPIXEL_ERR_CHECKS
 				//allow better error message in cases where src and dst are the same stack position
 				Variant ret = src->get(*index, &valid);
 #else
 				*dst = src->get(*index, &valid);
 
 #endif
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || WINTERPIXEL_ERR_CHECKS
 				if (!valid) {
 					String v = index->operator String();
 					if (v != "") {
@@ -608,7 +614,7 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 				bool valid;
 				dst->set_named(*index, *value, &valid);
 
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || WINTERPIXEL_ERR_CHECKS
 				if (!valid) {
 					String err_type;
 					err_text = "Invalid set index '" + String(*index) + "' (on base: '" + _get_var_type(dst) + "') with value of type '" + _get_var_type(value) + "'.";
@@ -631,14 +637,14 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 				const StringName *index = &_global_names_ptr[indexname];
 
 				bool valid;
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || WINTERPIXEL_ERR_CHECKS
 				//allow better error message in cases where src and dst are the same stack position
 				Variant ret = src->get_named(*index, &valid);
 
 #else
 				*dst = src->get_named(*index, &valid);
 #endif
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || WINTERPIXEL_ERR_CHECKS
 				if (!valid) {
 					if (src->has_method(*index)) {
 						err_text = "Invalid get index '" + index->operator String() + "' (on base: '" + _get_var_type(src) + "'). Did you mean '." + index->operator String() + "()' or funcref(obj, \"" + index->operator String() + "\") ?";
@@ -1049,7 +1055,8 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 				if (GDScriptLanguage::get_singleton()->profiling) {
 					function_call_time += OS::get_singleton()->get_ticks_usec() - call_time;
 				}
-
+#endif
+#if defined(DEBUG_ENABLED) || WINTERPIXEL_ERR_CHECKS
 				if (err.error != Variant::CallError::CALL_OK) {
 					String methodstr = *methodname;
 					String basestr = _get_var_type(base);
@@ -1288,7 +1295,7 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 #endif
 				}
 
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || WINTERPIXEL_ERR_CHECKS
 				exit_ok = true;
 				yielded = true;
 #endif
@@ -1362,7 +1369,7 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 				CHECK_SPACE(2);
 				GET_VARIANT_PTR(r, 1);
 				retvalue = *r;
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || WINTERPIXEL_ERR_CHECKS
 				exit_ok = true;
 #endif
 				OPCODE_BREAK;
@@ -1501,7 +1508,7 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 			DISPATCH_OPCODE;
 
 			OPCODE(OPCODE_END) {
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || WINTERPIXEL_ERR_CHECKS
 				exit_ok = true;
 #endif
 				OPCODE_BREAK;
@@ -1516,7 +1523,7 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 		}
 
 		OPCODES_END
-#ifdef DEBUG_ENABLED
+#if defined(DEBUG_ENABLED) || WINTERPIXEL_ERR_CHECKS
 		if (exit_ok) {
 			OPCODE_OUT;
 		}
@@ -1536,9 +1543,11 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 			err_func = p_instance->script->name + "." + err_func;
 		}
 		int err_line = line;
+#ifdef DEBUG_ENABLED
 		if (err_text == "") {
 			err_text = "Internal Script Error! - opcode #" + itos(last_opcode) + " (report please).";
 		}
+#endif
 
 		if (!GDScriptLanguage::get_singleton()->debug_break(err_text, false)) {
 			// debugger break did not happen

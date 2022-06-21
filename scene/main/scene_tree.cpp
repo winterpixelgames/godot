@@ -2122,8 +2122,9 @@ SceneTree::SceneTree() {
 	if (ScriptDebugger::get_singleton()) {
 		if (ScriptDebugger::get_singleton()->is_remote()) {
 			ScriptDebuggerRemote *remote_debugger = static_cast<ScriptDebuggerRemote *>(ScriptDebugger::get_singleton());
-
-			remote_debugger->set_scene_tree(this);
+			if(!remote_debugger->get_scene_tree()) {
+				remote_debugger->set_scene_tree(this);
+			}
 		}
 		ScriptDebugger::get_singleton()->set_multiplayer(multiplayer);
 	}

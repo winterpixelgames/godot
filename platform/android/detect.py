@@ -192,9 +192,12 @@ def configure(env):
     # Build type
 
     if env["target"].startswith("release"):
+        env.Append(CCFLAGS=["-g"]) # always with debug symbols and build id
+        env.Append(LINKFLAGS=["-Wl,--build-id"]) # always with debug symbols and build id
+
         if env["optimize"] == "speed":  # optimize for speed (default)
             env.Append(LINKFLAGS=["-O2"])
-            env.Append(CCFLAGS=["-O2", "-fomit-frame-pointer"])
+            env.Append(CCFLAGS=["-O2"])
         elif env["optimize"] == "size":  # optimize for size
             env.Append(CCFLAGS=["-Os"])
             env.Append(LINKFLAGS=["-Os"])
@@ -257,7 +260,7 @@ def configure(env):
     if env["tools"]:
         env.Append(CXXFLAGS=["-frtti"])
     else:
-        env.Append(CXXFLAGS=["-fno-rtti", "-fno-exceptions"])
+        env.Append(CXXFLAGS=["-fno-rtti"])
         # Don't use dynamic_cast, necessary with no-rtti.
         env.Append(CPPDEFINES=["NO_SAFE_CAST"])
 

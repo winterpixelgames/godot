@@ -81,6 +81,13 @@ Error CryptoKeyMbedTLS::load(String p_path, bool p_public_only) {
 	return OK;
 }
 
+Error CryptoKeyMbedTLS::load_from_memory(const uint8_t *p_buffer, int p_len) {
+	int ret = mbedtls_pk_parse_key(&pkey, p_buffer, p_len, NULL, 0);
+	ERR_FAIL_COND_V_MSG(ret, FAILED, "Error parsing private key '" + itos(ret) + "'.");
+
+	return OK;
+}
+
 Error CryptoKeyMbedTLS::save(String p_path, bool p_public_only) {
 	FileAccess *f = FileAccess::open(p_path, FileAccess::WRITE);
 	ERR_FAIL_COND_V_MSG(!f, ERR_INVALID_PARAMETER, "Cannot save CryptoKeyMbedTLS file '" + p_path + "'.");
