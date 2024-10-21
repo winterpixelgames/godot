@@ -412,6 +412,13 @@ public:                                                                         
 		static int ptr;                                                                                                                          \
 		return &ptr;                                                                                                                             \
 	}                                                                                                                                            \
+	static StringName& get_class_stringname_static() {                                                                                           \
+		static StringName _class_name_static;                                                                                                    \
+		if (unlikely(!_class_name_static)) {                                                                                                     \
+			StringName::assign_static_unique_class_name(&_class_name_static, #m_class);                                                          \
+		}                                                                                                                                        \
+		return _class_name_static;                                                                                                               \
+	}                                                                                                                                            \
 	static _FORCE_INLINE_ String get_class_static() {                                                                                            \
 		return String(#m_class);                                                                                                                 \
 	}                                                                                                                                            \
@@ -804,6 +811,14 @@ public:
 	static void get_inheritance_list_static(List<String> *p_inheritance_list) { p_inheritance_list->push_back("Object"); }
 
 	static String get_class_static() { return "Object"; }
+	static StringName& get_class_stringname_static() {    
+		static StringName _class_name_static;                                                                                                    \
+		if (unlikely(!_class_name_static)) {                                                                                                     \
+			StringName::assign_static_unique_class_name(&_class_name_static, "Object");                                                          \
+		}                                                                                                                                        \
+		return _class_name_static;  
+	}
+
 	static String get_parent_class_static() { return String(); }
 
 	virtual String get_class() const {
