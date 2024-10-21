@@ -193,11 +193,7 @@ public:
 	StringName() {}
 
 	static void assign_static_unique_class_name(StringName *ptr, const char *p_name);
-	_FORCE_INLINE_ ~StringName() {
-		if (likely(configured) && _data) { //only free if configured
-			unref();
-		}
-	}
+	~StringName();
 
 #ifdef DEBUG_ENABLED
 	static void set_debug_stringnames(bool p_enable) { debug_stringname = p_enable; }

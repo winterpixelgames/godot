@@ -563,3 +563,9 @@ bool operator==(const char *p_name, const StringName &p_string_name) {
 bool operator!=(const char *p_name, const StringName &p_string_name) {
 	return p_string_name.operator!=(p_name);
 }
+
+StringName::~StringName() {
+	if (likely(configured) && _data) { //only free if configured
+		unref();
+	}
+}
