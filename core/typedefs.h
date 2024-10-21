@@ -57,9 +57,9 @@ static_assert(__cplusplus >= 201703L);
 // Should always inline no matter what.
 #ifndef _ALWAYS_INLINE_
 #if defined(__GNUC__)
-#define _ALWAYS_INLINE_ __attribute__((always_inline)) inline
+#define _ALWAYS_INLINE_ inline
 #elif defined(_MSC_VER)
-#define _ALWAYS_INLINE_ __forceinline
+#define _ALWAYS_INLINE_ inline
 #else
 #define _ALWAYS_INLINE_ inline
 #endif
@@ -70,7 +70,7 @@ static_assert(__cplusplus >= 201703L);
 #ifdef DEV_ENABLED
 #define _FORCE_INLINE_ inline
 #else
-#define _FORCE_INLINE_ _ALWAYS_INLINE_
+#define _FORCE_INLINE_ inline
 #endif
 #endif
 

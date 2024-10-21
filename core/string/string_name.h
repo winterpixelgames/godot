@@ -109,7 +109,7 @@ public:
 	int length() const;
 	bool is_empty() const;
 
-	_FORCE_INLINE_ bool is_node_unique_name() const {
+	bool is_node_unique_name() const {
 		if (!_data) {
 			return false;
 		}
@@ -165,24 +165,7 @@ public:
 	static StringName search(const String &p_name);
 
 	struct AlphCompare {
-		_FORCE_INLINE_ bool operator()(const StringName &l, const StringName &r) const {
-			const char *l_cname = l._data ? l._data->cname : "";
-			const char *r_cname = r._data ? r._data->cname : "";
-
-			if (l_cname) {
-				if (r_cname) {
-					return is_str_less(l_cname, r_cname);
-				} else {
-					return is_str_less(l_cname, r._data->name.ptr());
-				}
-			} else {
-				if (r_cname) {
-					return is_str_less(l._data->name.ptr(), r_cname);
-				} else {
-					return is_str_less(l._data->name.ptr(), r._data->name.ptr());
-				}
-			}
-		}
+		bool operator()(const StringName &l, const StringName &r) const;
 	};
 
 	StringName &operator=(const StringName &p_name);
