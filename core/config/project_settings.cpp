@@ -1128,6 +1128,11 @@ Variant _GLOBAL_DEF(const PropertyInfo &p_info, const Variant &p_default, bool p
 	return ret;
 }
 
+Variant _GLOBAL_DEF(const char *p_var, const Variant &p_default, bool p_restart_if_changed, bool p_ignore_value_in_docs, bool p_basic, bool p_internal) {
+	Variant ret = _GLOBAL_DEF(String(p_var), p_default, p_restart_if_changed, p_ignore_value_in_docs, p_basic, p_internal);
+	return ret;
+}
+
 void ProjectSettings::_add_property_info_bind(const Dictionary &p_info) {
 	ERR_FAIL_COND(!p_info.has("name"));
 	ERR_FAIL_COND(!p_info.has("type"));
