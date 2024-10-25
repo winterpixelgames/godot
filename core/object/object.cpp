@@ -79,12 +79,14 @@ PropertyInfo::operator Dictionary() const {
 
 PropertyInfo::PropertyInfo(const Variant::Type p_type, const char *p_name, const PropertyHint p_hint, const char *p_hint_string, const uint32_t p_usage, const StringName &p_class_name) :
 	PropertyInfo(p_type, String(p_name), p_hint, String(p_hint_string), p_usage, p_class_name) {
-
 }
 
 PropertyInfo::PropertyInfo(const char *p_class_name) :
 	PropertyInfo(String(p_class_name)) {
-
+}
+PropertyInfo::PropertyInfo(const StringName &p_class_name) :
+	type(Variant::OBJECT),
+	class_name(p_class_name) {
 }
 
 PropertyInfo::PropertyInfo(const Variant::Type p_type, const String &p_name, const PropertyHint p_hint, const String &p_hint_string, const uint32_t p_usage, const StringName &p_class_name) :

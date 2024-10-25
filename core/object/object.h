@@ -173,9 +173,7 @@ struct PropertyInfo {
 
 	PropertyInfo(const Variant::Type p_type, const String &p_name, const PropertyHint p_hint = PROPERTY_HINT_NONE, const String &p_hint_string = "", const uint32_t p_usage = PROPERTY_USAGE_DEFAULT, const StringName &p_class_name = StringName());
 
-	PropertyInfo(const StringName &p_class_name) :
-			type(Variant::OBJECT),
-			class_name(p_class_name) {}
+	PropertyInfo(const StringName &p_class_name);
 
 	explicit PropertyInfo(const GDExtensionPropertyInfo &pinfo) :
 			type((Variant::Type)pinfo.type),
