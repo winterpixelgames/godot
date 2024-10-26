@@ -1083,6 +1083,18 @@ MethodBind *ClassDB::get_method_with_compatibility(const StringName &p_class, co
 	return nullptr;
 }
 
+void ClassDB::opt_bind_enum_constant_impl(const StringName &p_class, const StringName &p_enum, const char* name, int64_t val) {
+	bind_integer_constant(p_class, p_enum, name, val);
+}
+
+void ClassDB::opt_bind_enum_bitfield_constant_impl(const StringName &p_class, const StringName &p_enum, const char* name, int64_t val) {
+	bind_integer_constant(p_class, p_enum, name, val), true;
+}
+	
+void ClassDB::opt_bind_constant(const StringName &p_class, const char* name, int64_t val) {
+	bind_integer_constant(p_class, StringName(), name, val);
+}
+
 void ClassDB::bind_integer_constant(const StringName &p_class, const StringName &p_enum, const StringName &p_name, int64_t p_constant, bool p_is_bitfield) {
 	OBJTYPE_WLOCK;
 

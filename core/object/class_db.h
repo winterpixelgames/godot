@@ -455,6 +455,21 @@ public:
 	static void get_virtual_methods(const StringName &p_class, List<MethodInfo> *p_methods, bool p_no_inheritance = false);
 	static void add_extension_class_virtual_method(const StringName &p_class, const GDExtensionClassVirtualMethodInfo *p_method_info);
 
+	// Winterpixel optimizations
+	static void opt_bind_enum_constant_impl(const StringName &p_class, const StringName &p_enum, const char* name, int64_t val);
+	static void opt_bind_enum_bitfield_constant_impl(const StringName &p_class, const StringName &p_enum, const char* name, int64_t val);
+	static void opt_bind_constant(const StringName &p_class, const char* name, int64_t val);
+	
+	template <typename T>
+	static void opt_bind_enum_constant(const StringName &p_class, T param, const char* name, int64_t val) {
+		opt_bind_enum_constant_impl(p_class, __constant_get_enum_name(param, name), name, val);
+	}
+
+	template <typename T>
+	static void opt_bind_enum_bitfield_constant(const StringName &p_class, T param, const char* name, int64_t val) {
+		opt_bind_enum_bitfield_constant_impl(p_class, __constant_get_bitfield_name(param, name), name, val);
+	}
+
 	static void bind_integer_constant(const StringName &p_class, const StringName &p_enum, const StringName &p_name, int64_t p_constant, bool p_is_bitfield = false);
 	static void get_integer_constant_list(const StringName &p_class, List<String> *p_constants, bool p_no_inheritance = false);
 	static int64_t get_integer_constant(const StringName &p_class, const StringName &p_name, bool *p_success = nullptr);
@@ -497,14 +512,23 @@ public:
 	static uint64_t get_native_struct_size(const StringName &p_name); // Used for asserting
 };
 
+//#define BIND_ENUM_CONSTANT(m_constant) \
+//	::ClassDB::bind_integer_constant(get_class_stringname_static(), __constant_get_enum_name(m_constant, #m_constant), #m_constant, m_constant);
+
 #define BIND_ENUM_CONSTANT(m_constant) \
-	::ClassDB::bind_integer_constant(get_class_stringname_static(), __constant_get_enum_name(m_constant, #m_constant), #m_constant, m_constant);
+	::ClassDB::opt_bind_enum_constant(get_class_stringname_static(), m_constant, #m_constant, m_constant);
+
+//#define BIND_BITFIELD_FLAG(m_constant) \
+//	::ClassDB::bind_integer_constant(get_class_stringname_static(), __constant_get_bitfield_name(m_constant, #m_constant), #m_constant, m_constant, true);
 
 #define BIND_BITFIELD_FLAG(m_constant) \
-	::ClassDB::bind_integer_constant(get_class_stringname_static(), __constant_get_bitfield_name(m_constant, #m_constant), #m_constant, m_constant, true);
+	::ClassDB::opt_bind_enum_bitfield_constant(get_class_stringname_static(), m_constant, #m_constant, m_constant);
+
+//#define BIND_CONSTANT(m_constant) \
+//	::ClassDB::bind_integer_constant(get_class_stringname_static(), StringName(), #m_constant, m_constant);
 
 #define BIND_CONSTANT(m_constant) \
-	::ClassDB::bind_integer_constant(get_class_stringname_static(), StringName(), #m_constant, m_constant);
+	::ClassDB::opt_bind_constant(get_class_stringname_static(), #m_constant, m_constant);
 
 #ifdef DEBUG_METHODS_ENABLED
 
