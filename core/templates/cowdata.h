@@ -71,15 +71,19 @@ public:
 	//             └────────────────────┴──┴─────────────┴──┴───────────...
 	// Offset:     ↑ REF_COUNT_OFFSET      ↑ SIZE_OFFSET    ↑ DATA_OFFSET
 
+protected:
+	mutable void *_ptr = nullptr;
 
+	static constexpr size_t REF_COUNT_OFFSET = 0;
+	static constexpr size_t SIZE_OFFSET = ((CowBackingData::REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) % alignof(CowBackingData::USize) == 0) ? (CowBackingData::REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) : ((CowBackingData::REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) + alignof(CowBackingData::USize) - ((CowBackingData::REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) % alignof(CowBackingData::USize)));
+	static constexpr size_t DATA_OFFSET = ((CowBackingData::SIZE_OFFSET + sizeof(CowBackingData::USize)) % alignof(max_align_t) == 0) ? (CowBackingData::SIZE_OFFSET + sizeof(CowBackingData::USize)) : ((CowBackingData::SIZE_OFFSET + sizeof(CowBackingData::USize)) + alignof(max_align_t) - ((CowBackingData::SIZE_OFFSET + sizeof(CowBackingData::USize)) % alignof(max_align_t)));
 
 
 
 };
 
-
 template <typename T>
-class CowData {
+class CowData : public CowBackingData {
 	template <typename TV>
 	friend class Vector;
 	friend class String;
@@ -89,43 +93,21 @@ class CowData {
 	friend class VMap;
 
 private:
-	// Function to find the next power of 2 to an integer.
-	static _FORCE_INLINE_ CowBackingData::USize next_po2(CowBackingData::USize x) {
-		if (x == 0) {
-			return 0;
-		}
 
-		--x;
-		x |= x >> 1;
-		x |= x >> 2;
-		x |= x >> 4;
-		x |= x >> 8;
-		x |= x >> 16;
-		if (sizeof(CowBackingData::USize) == 8) {
-			x |= x >> 32;
-		}
-
-		return ++x;
-	}
-
-	static constexpr size_t REF_COUNT_OFFSET = 0;
-	static constexpr size_t SIZE_OFFSET = ((REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) % alignof(CowBackingData::USize) == 0) ? (REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) : ((REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) + alignof(CowBackingData::USize) - ((REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) % alignof(CowBackingData::USize)));
-	static constexpr size_t DATA_OFFSET = ((SIZE_OFFSET + sizeof(CowBackingData::USize)) % alignof(max_align_t) == 0) ? (SIZE_OFFSET + sizeof(CowBackingData::USize)) : ((SIZE_OFFSET + sizeof(CowBackingData::USize)) + alignof(max_align_t) - ((SIZE_OFFSET + sizeof(CowBackingData::USize)) % alignof(max_align_t)));
-
-	mutable T *_ptr = nullptr;
+	//mutable T *_ptr = nullptr;
 
 	// internal helpers
 
 	static _FORCE_INLINE_ SafeNumeric<CowBackingData::USize> *_get_refcount_ptr(uint8_t *p_ptr) {
-		return (SafeNumeric<CowBackingData::USize> *)(p_ptr + REF_COUNT_OFFSET);
+		return (SafeNumeric<CowBackingData::USize> *)(p_ptr + CowBackingData::REF_COUNT_OFFSET);
 	}
 
 	static _FORCE_INLINE_ CowBackingData::USize *_get_size_ptr(uint8_t *p_ptr) {
-		return (CowBackingData::USize *)(p_ptr + SIZE_OFFSET);
+		return (CowBackingData::USize *)(p_ptr + CowBackingData::SIZE_OFFSET);
 	}
 
 	static _FORCE_INLINE_ T *_get_data_ptr(uint8_t *p_ptr) {
-		return (T *)(p_ptr + DATA_OFFSET);
+		return (T *)(p_ptr + CowBackingData::DATA_OFFSET);
 	}
 
 	_FORCE_INLINE_ SafeNumeric<CowBackingData::USize> *_get_refcount() const {
@@ -133,7 +115,7 @@ private:
 			return nullptr;
 		}
 
-		return (SafeNumeric<CowBackingData::USize> *)((uint8_t *)_ptr - DATA_OFFSET + REF_COUNT_OFFSET);
+		return (SafeNumeric<CowBackingData::USize> *)((uint8_t *)_ptr - CowBackingData::DATA_OFFSET + CowBackingData::REF_COUNT_OFFSET);
 	}
 
 	_FORCE_INLINE_ CowBackingData::USize *_get_size() const {
@@ -141,11 +123,11 @@ private:
 			return nullptr;
 		}
 
-		return (CowBackingData::USize *)((uint8_t *)_ptr - DATA_OFFSET + SIZE_OFFSET);
+		return (CowBackingData::USize *)((uint8_t *)_ptr - CowBackingData::DATA_OFFSET + CowBackingData::SIZE_OFFSET);
 	}
 
 	_FORCE_INLINE_ CowBackingData::USize _get_alloc_size(CowBackingData::USize p_elements) const {
-		return next_po2(p_elements * sizeof(T));
+		return CowBackingData::next_po2(p_elements * sizeof(T));
 	}
 
 	_FORCE_INLINE_ bool _get_alloc_size_checked(CowBackingData::USize p_elements, CowBackingData::USize *out) const {
@@ -160,7 +142,7 @@ private:
 			*out = 0;
 			return false;
 		}
-		*out = next_po2(o);
+		*out = CowBackingData::next_po2(o);
 		if (__builtin_add_overflow(o, static_cast<CowBackingData::USize>(32), &p)) {
 			return false; // No longer allocated here.
 		}
@@ -182,11 +164,11 @@ public:
 
 	_FORCE_INLINE_ T *ptrw() {
 		_copy_on_write();
-		return _ptr;
+		return (static_cast<T*>(_ptr));
 	}
 
 	_FORCE_INLINE_ const T *ptr() const {
-		return _ptr;
+		return (static_cast<T*>(_ptr));
 	}
 
 	_FORCE_INLINE_ CowBackingData::Size size() const {
@@ -204,19 +186,19 @@ public:
 	_FORCE_INLINE_ void set(CowBackingData::Size p_index, const T &p_elem) {
 		ERR_FAIL_INDEX(p_index, size());
 		_copy_on_write();
-		_ptr[p_index] = p_elem;
+		(static_cast<T*>(_ptr))[p_index] = p_elem;
 	}
 
 	_FORCE_INLINE_ T &get_m(CowBackingData::Size p_index) {
 		CRASH_BAD_INDEX(p_index, size());
 		_copy_on_write();
-		return _ptr[p_index];
+		return (static_cast<T*>(_ptr))[p_index];
 	}
 
 	_FORCE_INLINE_ const T &get(CowBackingData::Size p_index) const {
 		CRASH_BAD_INDEX(p_index, size());
 
-		return _ptr[p_index];
+		return (static_cast<T*>(_ptr))[p_index];
 	}
 
 	template <bool p_ensure_zero = false>
@@ -273,13 +255,13 @@ void CowData<T>::_unref() {
 
 		for (CowBackingData::USize i = 0; i < current_size; ++i) {
 			// call destructors
-			T *t = &_ptr[i];
+			T *t = &(static_cast<T*>(_ptr))[i];
 			t->~T();
 		}
 	}
 
 	// free mem
-	Memory::free_static(((uint8_t *)_ptr) - DATA_OFFSET, false);
+	Memory::free_static(((uint8_t *)_ptr) - CowBackingData::DATA_OFFSET, false);
 }
 
 template <typename T>
@@ -295,7 +277,7 @@ typename CowBackingData::USize CowData<T>::_copy_on_write() {
 		/* in use by more than me */
 		CowBackingData::USize current_size = *_get_size();
 
-		uint8_t *mem_new = (uint8_t *)Memory::alloc_static(_get_alloc_size(current_size) + DATA_OFFSET, false);
+		uint8_t *mem_new = (uint8_t *)Memory::alloc_static(_get_alloc_size(current_size) + CowBackingData::DATA_OFFSET, false);
 		ERR_FAIL_NULL_V(mem_new, 0);
 
 		SafeNumeric<CowBackingData::USize> *_refc_ptr = _get_refcount_ptr(mem_new);
@@ -310,7 +292,7 @@ typename CowBackingData::USize CowData<T>::_copy_on_write() {
 			memcpy((uint8_t *)_data_ptr, _ptr, current_size * sizeof(T));
 		} else {
 			for (CowBackingData::USize i = 0; i < current_size; i++) {
-				memnew_placement(&_data_ptr[i], T(_ptr[i]));
+				memnew_placement(&_data_ptr[i], T((static_cast<T*>(_ptr))[i]));
 			}
 		}
 
@@ -351,7 +333,7 @@ Error CowData<T>::resize(CowBackingData::Size p_size) {
 		if (alloc_size != current_alloc_size) {
 			if (current_size == 0) {
 				// alloc from scratch
-				uint8_t *mem_new = (uint8_t *)Memory::alloc_static(alloc_size + DATA_OFFSET, false);
+				uint8_t *mem_new = (uint8_t *)Memory::alloc_static(alloc_size + CowBackingData::DATA_OFFSET, false);
 				ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
 
 				SafeNumeric<CowBackingData::USize> *_refc_ptr = _get_refcount_ptr(mem_new);
@@ -364,7 +346,7 @@ Error CowData<T>::resize(CowBackingData::Size p_size) {
 				_ptr = _data_ptr;
 
 			} else {
-				uint8_t *mem_new = (uint8_t *)Memory::realloc_static(((uint8_t *)_ptr) - DATA_OFFSET, alloc_size + DATA_OFFSET, false);
+				uint8_t *mem_new = (uint8_t *)Memory::realloc_static(((uint8_t *)_ptr) - CowBackingData::DATA_OFFSET, alloc_size + CowBackingData::DATA_OFFSET, false);
 				ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
 
 				SafeNumeric<CowBackingData::USize> *_refc_ptr = _get_refcount_ptr(mem_new);
@@ -380,10 +362,10 @@ Error CowData<T>::resize(CowBackingData::Size p_size) {
 
 		if constexpr (!std::is_trivially_constructible_v<T>) {
 			for (CowBackingData::Size i = *_get_size(); i < p_size; i++) {
-				memnew_placement(&_ptr[i], T);
+				memnew_placement(&(static_cast<T*>(_ptr))[i], T);
 			}
 		} else if (p_ensure_zero) {
-			memset((void *)(_ptr + current_size), 0, (p_size - current_size) * sizeof(T));
+			memset((void *)((static_cast<T*>(_ptr)) + current_size), 0, (p_size - current_size) * sizeof(T));
 		}
 
 		*_get_size() = p_size;
@@ -392,13 +374,13 @@ Error CowData<T>::resize(CowBackingData::Size p_size) {
 		if constexpr (!std::is_trivially_destructible_v<T>) {
 			// deinitialize no longer needed elements
 			for (CowBackingData::USize i = p_size; i < *_get_size(); i++) {
-				T *t = &_ptr[i];
+				T *t = &(static_cast<T*>(_ptr))[i];
 				t->~T();
 			}
 		}
 
 		if (alloc_size != current_alloc_size) {
-			uint8_t *mem_new = (uint8_t *)Memory::realloc_static(((uint8_t *)_ptr) - DATA_OFFSET, alloc_size + DATA_OFFSET, false);
+			uint8_t *mem_new = (uint8_t *)Memory::realloc_static(((uint8_t *)_ptr) - CowBackingData::DATA_OFFSET, alloc_size + CowBackingData::DATA_OFFSET, false);
 			ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
 
 			SafeNumeric<CowBackingData::USize> *_refc_ptr = _get_refcount_ptr(mem_new);
@@ -406,7 +388,7 @@ Error CowData<T>::resize(CowBackingData::Size p_size) {
 
 			new (_refc_ptr) SafeNumeric<CowBackingData::USize>(rc); //refcount
 
-			_ptr = _data_ptr;
+			_ptr  = _data_ptr;
 		}
 
 		*_get_size() = p_size;
