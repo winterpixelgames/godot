@@ -44,6 +44,30 @@ CowBackingData::USize CowBackingData::next_po2(CowBackingData::USize x) {
 	return ++x;
 }
 
+void CowBackingData::_backing_unref(bool p_is_trivially_distructable, void(*p_desctructor_func)(void*), size_t p_element_size) {
+	if (!_ptr) {
+		return;
+	}
+
+	SafeNumeric<CowBackingData::USize> *refc = _get_refcount();
+	if (refc->decrement() > 0) {
+		return; // still in use
+	}
+	
+	// clean up
+	if (!p_is_trivially_distructable) {
+		CowBackingData::USize current_size = *_get_size();
+
+		for (CowBackingData::USize i = 0; i < current_size; ++i) {
+			uint8_t *ptr = (uint8_t *)_ptr;
+			p_desctructor_func( (void*)(&(ptr[i*p_element_size])));
+		}
+	}
+
+	// free mem
+	Memory::free_static(((uint8_t *)_ptr) - CowBackingData::DATA_OFFSET, false);
+}
+
 /*
  void CowData::remove_at(Size p_index) {
 	ERR_FAIL_INDEX(p_index, size());
