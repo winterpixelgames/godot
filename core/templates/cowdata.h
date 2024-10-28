@@ -143,11 +143,11 @@ protected:
 		}
 	}
 
-	void _backing_unref(bool p_is_trivially_distructable, void(*p_desctructor_func)(void*), size_t p_element_size);
+	void _backing_unref(bool p_is_trivially_destructible, void(*p_destructor_func)(void*), size_t p_element_size);
 
-	USize _backing_copy_on_write(bool p_is_trivially_copyable, void(*p_copy_func)(void*, void*), bool p_is_trivially_distructable, void(*p_desctructor_func)(void*), size_t p_element_size);
+	USize _backing_copy_on_write(bool p_is_trivially_copyable, void(*p_copy_func)(void*, void*), bool p_is_trivially_destructible, void(*p_destructor_func)(void*), size_t p_element_size);
 
-	Error _backing_resize(CowBackingData::Size p_size, bool p_is_zeroed, bool p_is_trivially_copyable, void(*p_copy_func)(void*, void*), bool p_is_trivially_constructible, void(*p_constructor_func)(void*), bool p_is_trivially_distructable, void(*p_desctructor_func)(void*), size_t p_element_size);
+	Error _backing_resize(CowBackingData::Size p_size, bool p_is_zeroed, bool p_is_trivially_copyable, void(*p_copy_func)(void*, void*), bool p_is_trivially_constructible, void(*p_constructor_func)(void*), bool p_is_trivially_destructible, void(*p_destructor_func)(void*), size_t p_element_size);
 
 };
 

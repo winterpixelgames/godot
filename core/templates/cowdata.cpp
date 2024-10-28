@@ -48,7 +48,7 @@ CowBackingData::USize CowBackingData::next_po2(CowBackingData::USize x) {
 	return ++x;
 }
 
-void CowBackingData::_backing_unref(bool p_is_trivially_distructable, void(*p_desctructor_func)(void*), size_t p_element_size) {
+void CowBackingData::_backing_unref(bool p_is_trivially_destructible, void(*p_destructor_func)(void*), size_t p_element_size) {
 	if (!_ptr) {
 		return;
 	}
@@ -59,12 +59,12 @@ void CowBackingData::_backing_unref(bool p_is_trivially_distructable, void(*p_de
 	}
 	
 	// clean up
-	if (!p_is_trivially_distructable) {
+	if (!p_is_trivially_destructible) {
 		CowBackingData::USize current_size = *_backing_get_size();
 
 		for (CowBackingData::USize i = 0; i < current_size; ++i) {
 			uint8_t *ptr = (uint8_t *)_ptr;
-			p_desctructor_func( (void*)(&(ptr[i*p_element_size])));
+			p_destructor_func( (void*)(&(ptr[i*p_element_size])));
 		}
 	}
 
@@ -73,7 +73,7 @@ void CowBackingData::_backing_unref(bool p_is_trivially_distructable, void(*p_de
 }
 
 
-CowBackingData::USize CowBackingData::_backing_copy_on_write(bool p_is_trivially_copyable, void(*p_copy_func)(void*, void*), bool p_is_trivially_distructable, void(*p_desctructor_func)(void*), size_t p_element_size) {
+CowBackingData::USize CowBackingData::_backing_copy_on_write(bool p_is_trivially_copyable, void(*p_copy_func)(void*, void*), bool p_is_trivially_destructible, void(*p_destructor_func)(void*), size_t p_element_size) {
 	if (!_ptr) {
 		return 0;
 	}
@@ -109,7 +109,7 @@ CowBackingData::USize CowBackingData::_backing_copy_on_write(bool p_is_trivially
 			}
 		}
 
-		_backing_unref(p_is_trivially_distructable, p_desctructor_func, p_element_size);
+		_backing_unref(p_is_trivially_destructible, p_destructor_func, p_element_size);
 		_ptr = _data_ptr;
 
 		rc = 1;
@@ -120,7 +120,7 @@ CowBackingData::USize CowBackingData::_backing_copy_on_write(bool p_is_trivially
 }
 
 
-Error CowBackingData::_backing_resize(CowBackingData::Size p_size, bool p_is_zeroed, bool p_is_trivially_copyable, void(*p_copy_func)(void*, void*), bool p_is_trivially_constructible, void(*p_constructor_func)(void*), bool p_is_trivially_distructable, void(*p_desctructor_func)(void*), size_t p_element_size) {
+Error CowBackingData::_backing_resize(CowBackingData::Size p_size, bool p_is_zeroed, bool p_is_trivially_copyable, void(*p_copy_func)(void*, void*), bool p_is_trivially_constructible, void(*p_constructor_func)(void*), bool p_is_trivially_destructible, void(*p_destructor_func)(void*), size_t p_element_size) {
 	ERR_FAIL_COND_V(p_size < 0, ERR_INVALID_PARAMETER);
 
 	CowBackingData::Size current_size = _backing_size();
@@ -131,13 +131,13 @@ Error CowBackingData::_backing_resize(CowBackingData::Size p_size, bool p_is_zer
 
 	if (p_size == 0) {
 		// wants to clean up
-		_backing_unref(p_is_trivially_distructable, p_desctructor_func, p_element_size);
+		_backing_unref(p_is_trivially_destructible, p_destructor_func, p_element_size);
 		_ptr = nullptr;
 		return OK;
 	}
 
 	// possibly changing size, copy on write
-	CowBackingData::USize rc = _backing_copy_on_write(p_is_trivially_copyable, p_copy_func, p_is_trivially_distructable, p_desctructor_func, p_element_size);
+	CowBackingData::USize rc = _backing_copy_on_write(p_is_trivially_copyable, p_copy_func, p_is_trivially_destructible, p_destructor_func, p_element_size);
 
 	CowBackingData::USize current_alloc_size = _backing_get_alloc_size(current_size, p_element_size);
 	CowBackingData::USize alloc_size;
@@ -176,7 +176,7 @@ Error CowBackingData::_backing_resize(CowBackingData::Size p_size, bool p_is_zer
 		if (p_is_trivially_constructible) {
 			for (CowBackingData::Size i = *_backing_get_size(); i < p_size; i++) {
 				uint8_t *src_ptr = (uint8_t *)_ptr;
-				p_copy_func((void*)(&(src_ptr[i*p_element_size])));
+				p_constructor_func((void*)(&(src_ptr[i*p_element_size])));
 			}
 		} else if (p_is_zeroed) {
 
@@ -186,11 +186,11 @@ Error CowBackingData::_backing_resize(CowBackingData::Size p_size, bool p_is_zer
 		*_backing_get_size() = p_size;
 
 	} else if (p_size < current_size) {
-		if (p_is_trivially_distructable) {
+		if (p_is_trivially_destructible) {
 			// deinitialize no longer needed elements
 			for (CowBackingData::USize i = p_size; i < *_backing_get_size(); i++) {
 				uint8_t *ptr = (uint8_t *)_ptr;
-				p_desctructor_func( (void*)(&(ptr[i*p_element_size])));
+				p_destructor_func( (void*)(&(ptr[i*p_element_size])));
 			}
 		}
 

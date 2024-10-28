@@ -28,6 +28,8 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
+#include "variant.h"
+#include "core/object/object.h"
 #include "type_info.h"
 
 namespace godot {

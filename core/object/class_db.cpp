@@ -1088,7 +1088,7 @@ void ClassDB::opt_bind_enum_constant_impl(const StringName &p_class, const Strin
 }
 
 void ClassDB::opt_bind_enum_bitfield_constant_impl(const StringName &p_class, const StringName &p_enum, const char* name, int64_t val) {
-	bind_integer_constant(p_class, p_enum, name, val), true;
+	bind_integer_constant(p_class, p_enum, name, val, true);
 }
 	
 void ClassDB::opt_bind_constant(const StringName &p_class, const char* name, int64_t val) {
