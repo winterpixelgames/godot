@@ -78,7 +78,19 @@ protected:
 	static constexpr size_t SIZE_OFFSET = ((CowBackingData::REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) % alignof(CowBackingData::USize) == 0) ? (CowBackingData::REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) : ((CowBackingData::REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) + alignof(CowBackingData::USize) - ((CowBackingData::REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) % alignof(CowBackingData::USize)));
 	static constexpr size_t DATA_OFFSET = ((CowBackingData::SIZE_OFFSET + sizeof(CowBackingData::USize)) % alignof(max_align_t) == 0) ? (CowBackingData::SIZE_OFFSET + sizeof(CowBackingData::USize)) : ((CowBackingData::SIZE_OFFSET + sizeof(CowBackingData::USize)) + alignof(max_align_t) - ((CowBackingData::SIZE_OFFSET + sizeof(CowBackingData::USize)) % alignof(max_align_t)));
 
-	_FORCE_INLINE_ SafeNumeric<CowBackingData::USize> *_get_refcount() const {
+	static _FORCE_INLINE_ SafeNumeric<CowBackingData::USize> *_backing_get_refcount_ptr(uint8_t *p_ptr) {
+		return (SafeNumeric<CowBackingData::USize> *)(p_ptr + CowBackingData::REF_COUNT_OFFSET);
+	}
+
+	static _FORCE_INLINE_ CowBackingData::USize *_backing_get_size_ptr(uint8_t *p_ptr) {
+		return (CowBackingData::USize *)(p_ptr + CowBackingData::SIZE_OFFSET);
+	}
+
+	static _FORCE_INLINE_ void *_backing_get_data_ptr(uint8_t *p_ptr) {
+		return (void *)(p_ptr + CowBackingData::DATA_OFFSET);
+	}
+
+	_FORCE_INLINE_ SafeNumeric<CowBackingData::USize> *_backing_get_refcount() const {
 		if (!_ptr) {
 			return nullptr;
 		}
@@ -86,7 +98,7 @@ protected:
 		return (SafeNumeric<CowBackingData::USize> *)((uint8_t *)_ptr - CowBackingData::DATA_OFFSET + CowBackingData::REF_COUNT_OFFSET);
 	}
 
-	_FORCE_INLINE_ CowBackingData::USize *_get_size() const {
+	_FORCE_INLINE_ CowBackingData::USize *_backing_get_size() const {
 		if (!_ptr) {
 			return nullptr;
 		}
@@ -94,8 +106,14 @@ protected:
 		return (CowBackingData::USize *)((uint8_t *)_ptr - CowBackingData::DATA_OFFSET + CowBackingData::SIZE_OFFSET);
 	}
 
+	_FORCE_INLINE_ CowBackingData::USize _backing_get_alloc_size(CowBackingData::USize p_elements, size_t p_element_size) const {
+		return CowBackingData::next_po2(p_elements * p_element_size);
+	}
+
 
 	void _backing_unref(bool p_is_trivially_distructable, void(*p_desctructor_func)(void*), size_t p_element_size);
+
+	USize _backing_copy_on_write(bool p_is_trivially_copyable,  void(*p_constructor_func)(void*, void*), bool p_is_trivially_distructable, void(*p_desctructor_func)(void*), size_t p_element_size);
 
 };
 
@@ -116,27 +134,27 @@ private:
 	// internal helpers
 
 	static _FORCE_INLINE_ SafeNumeric<CowBackingData::USize> *_get_refcount_ptr(uint8_t *p_ptr) {
-		return (SafeNumeric<CowBackingData::USize> *)(p_ptr + CowBackingData::REF_COUNT_OFFSET);
+		return CowBackingData::_backing_get_refcount_ptr(p_ptr);
 	}
 
 	static _FORCE_INLINE_ CowBackingData::USize *_get_size_ptr(uint8_t *p_ptr) {
-		return (CowBackingData::USize *)(p_ptr + CowBackingData::SIZE_OFFSET);
+		return CowBackingData::_backing_get_size_ptr(p_ptr);
 	}
 
 	static _FORCE_INLINE_ T *_get_data_ptr(uint8_t *p_ptr) {
-		return (T *)(p_ptr + CowBackingData::DATA_OFFSET);
+		return (T *)CowBackingData::_backing_get_data_ptr(p_ptr);
 	}
 
 	_FORCE_INLINE_ SafeNumeric<CowBackingData::USize> *_get_refcount() const {
-		return CowBackingData::_get_refcount();
+		return CowBackingData::_backing_get_refcount();
 	}
 
 	_FORCE_INLINE_ CowBackingData::USize *_get_size() const {
-		return CowBackingData::_get_size();
+		return CowBackingData::_backing_get_size();
 	}
 
 	_FORCE_INLINE_ CowBackingData::USize _get_alloc_size(CowBackingData::USize p_elements) const {
-		return CowBackingData::next_po2(p_elements * sizeof(T));
+		return CowBackingData::_backing_get_alloc_size(p_elements, sizeof(T));
 	}
 
 	_FORCE_INLINE_ bool _get_alloc_size_checked(CowBackingData::USize p_elements, CowBackingData::USize *out) const {
@@ -256,42 +274,13 @@ void CowData<T>::_unref() {
 
 template <typename T>
 typename CowBackingData::USize CowData<T>::_copy_on_write() {
-	if (!_ptr) {
-		return 0;
-	}
-
-	SafeNumeric<CowBackingData::USize> *refc = _get_refcount();
-
-	CowBackingData::USize rc = refc->get();
-	if (unlikely(rc > 1)) {
-		/* in use by more than me */
-		CowBackingData::USize current_size = *_get_size();
-
-		uint8_t *mem_new = (uint8_t *)Memory::alloc_static(_get_alloc_size(current_size) + CowBackingData::DATA_OFFSET, false);
-		ERR_FAIL_NULL_V(mem_new, 0);
-
-		SafeNumeric<CowBackingData::USize> *_refc_ptr = _get_refcount_ptr(mem_new);
-		CowBackingData::USize *_size_ptr = _get_size_ptr(mem_new);
-		T *_data_ptr = _get_data_ptr(mem_new);
-
-		new (_refc_ptr) SafeNumeric<CowBackingData::USize>(1); //refcount
-		*(_size_ptr) = current_size; //size
-
-		// initialize new elements
-		if constexpr (std::is_trivially_copyable_v<T>) {
-			memcpy((uint8_t *)_data_ptr, _ptr, current_size * sizeof(T));
-		} else {
-			for (CowBackingData::USize i = 0; i < current_size; i++) {
-				memnew_placement(&_data_ptr[i], T((static_cast<T*>(_ptr))[i]));
-			}
-		}
-
-		_unref();
-		_ptr = _data_ptr;
-
-		rc = 1;
-	}
-	return rc;
+	
+	return CowBackingData::_backing_copy_on_write(std::is_trivially_copyable_v<T>, [](void* target_ptr, void* src_ptr){
+		memnew_placement(static_cast<T*>(target_ptr), T(*(static_cast<T*>(src_ptr))));
+	}, std::is_trivially_destructible_v<T>,  [](void* p_ptr){
+		T *t = static_cast<T*>(p_ptr);
+		t->~T();
+	}, sizeof(T));
 }
 
 template <typename T>
