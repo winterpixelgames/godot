@@ -31,12 +31,12 @@
 #ifndef VSET_H
 #define VSET_H
 
-#include "core/templates/vector.h"
+#include "core/templates/local_vector.h"
 #include "core/typedefs.h"
 
 template <typename T>
 class VSet {
-	Vector<T> _data;
+	LocalVector<T> _data;
 
 	_FORCE_INLINE_ int _find(const T &p_val, bool &r_exact) const {
 		r_exact = false;
@@ -131,7 +131,7 @@ public:
 	_FORCE_INLINE_ int size() const { return _data.size(); }
 
 	inline T &operator[](int p_index) {
-		return _data.write[p_index];
+		return _data[p_index];
 	}
 
 	inline const T &operator[](int p_index) const {

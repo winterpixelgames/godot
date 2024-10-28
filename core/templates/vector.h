@@ -48,7 +48,7 @@
 template <typename T>
 class VectorWriteProxy {
 public:
-	_FORCE_INLINE_ T &operator[](typename CowData<T>::Size p_index) {
+	_FORCE_INLINE_ T &operator[](typename CowBackingData::Size p_index) {
 		CRASH_BAD_INDEX(p_index, ((Vector<T> *)(this))->_cowdata.size());
 
 		return ((Vector<T> *)(this))->_cowdata.ptrw()[p_index];
@@ -61,7 +61,7 @@ class Vector {
 
 public:
 	VectorWriteProxy<T> write;
-	typedef typename CowData<T>::Size Size;
+	typedef typename CowBackingData::Size Size;
 
 private:
 	CowData<T> _cowdata;
@@ -158,7 +158,7 @@ public:
 		return ret;
 	}
 
-	Vector<T> slice(Size p_begin, Size p_end = CowData<T>::MAX_INT) const {
+	Vector<T> slice(Size p_begin, Size p_end = CowBackingData::MAX_INT) const {
 		Vector<T> result;
 
 		const Size s = size();
