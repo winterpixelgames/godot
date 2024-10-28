@@ -2,9 +2,9 @@
 /*  cowdata.h                                                             */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                             PRODOT ENGINE                              */
 /**************************************************************************/
+/* Copyright (c) 2024-present Prodot Engine contributors (see PRODOT_AUTHORS.md).*/
 /* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
@@ -110,10 +110,44 @@ protected:
 		return CowBackingData::next_po2(p_elements * p_element_size);
 	}
 
+	_FORCE_INLINE_ bool _backing_get_alloc_size_checked(CowBackingData::USize p_elements, CowBackingData::USize *out, size_t p_element_size) const {
+		if (unlikely(p_elements == 0)) {
+			*out = 0;
+			return true;
+		}
+#if defined(__GNUC__) && defined(IS_32_BIT)
+		CowBackingData::USize o;
+		CowBackingData::USize p;
+		if (__builtin_mul_overflow(p_elements, p_element_size, &o)) {
+			*out = 0;
+			return false;
+		}
+		*out = CowBackingData::next_po2(o);
+		if (__builtin_add_overflow(o, static_cast<CowBackingData::USize>(32), &p)) {
+			return false; // No longer allocated here.
+		}
+#else
+		// Speed is more important than correctness here, do the operations unchecked
+		// and hope for the best.
+		*out = _backing_get_alloc_size(p_elements, p_element_size);
+#endif
+		return *out;
+	}
+
+	_FORCE_INLINE_ CowBackingData::Size _backing_size() const {
+		CowBackingData::USize *size = (CowBackingData::USize *)_backing_get_size();
+		if (size) {
+			return *size;
+		} else {
+			return 0;
+		}
+	}
 
 	void _backing_unref(bool p_is_trivially_distructable, void(*p_desctructor_func)(void*), size_t p_element_size);
 
-	USize _backing_copy_on_write(bool p_is_trivially_copyable,  void(*p_constructor_func)(void*, void*), bool p_is_trivially_distructable, void(*p_desctructor_func)(void*), size_t p_element_size);
+	USize _backing_copy_on_write(bool p_is_trivially_copyable, void(*p_copy_func)(void*, void*), bool p_is_trivially_distructable, void(*p_desctructor_func)(void*), size_t p_element_size);
+
+	Error _backing_resize(CowBackingData::Size p_size, bool p_is_zeroed, bool p_is_trivially_copyable, void(*p_copy_func)(void*, void*), bool p_is_trivially_constructible, void(*p_constructor_func)(void*), bool p_is_trivially_distructable, void(*p_desctructor_func)(void*), size_t p_element_size);
 
 };
 
@@ -128,10 +162,6 @@ class CowData : public CowBackingData {
 	friend class VMap;
 
 private:
-
-	//mutable T *_ptr = nullptr;
-
-	// internal helpers
 
 	static _FORCE_INLINE_ SafeNumeric<CowBackingData::USize> *_get_refcount_ptr(uint8_t *p_ptr) {
 		return CowBackingData::_backing_get_refcount_ptr(p_ptr);
@@ -158,27 +188,7 @@ private:
 	}
 
 	_FORCE_INLINE_ bool _get_alloc_size_checked(CowBackingData::USize p_elements, CowBackingData::USize *out) const {
-		if (unlikely(p_elements == 0)) {
-			*out = 0;
-			return true;
-		}
-#if defined(__GNUC__) && defined(IS_32_BIT)
-		CowBackingData::USize o;
-		CowBackingData::USize p;
-		if (__builtin_mul_overflow(p_elements, sizeof(T), &o)) {
-			*out = 0;
-			return false;
-		}
-		*out = CowBackingData::next_po2(o);
-		if (__builtin_add_overflow(o, static_cast<CowBackingData::USize>(32), &p)) {
-			return false; // No longer allocated here.
-		}
-#else
-		// Speed is more important than correctness here, do the operations unchecked
-		// and hope for the best.
-		*out = _get_alloc_size(p_elements);
-#endif
-		return *out;
+		return CowBackingData::_backing_get_alloc_size_checked(p_elements, out, sizeof(T));
 	}
 
 	void _unref();
@@ -199,12 +209,7 @@ public:
 	}
 
 	_FORCE_INLINE_ CowBackingData::Size size() const {
-		CowBackingData::USize *size = (CowBackingData::USize *)_get_size();
-		if (size) {
-			return *size;
-		} else {
-			return 0;
-		}
+		return CowBackingData::_backing_size();
 	}
 
 	_FORCE_INLINE_ void clear() { resize(0); }
@@ -274,7 +279,6 @@ void CowData<T>::_unref() {
 
 template <typename T>
 typename CowBackingData::USize CowData<T>::_copy_on_write() {
-	
 	return CowBackingData::_backing_copy_on_write(std::is_trivially_copyable_v<T>, [](void* target_ptr, void* src_ptr){
 		memnew_placement(static_cast<T*>(target_ptr), T(*(static_cast<T*>(src_ptr))));
 	}, std::is_trivially_destructible_v<T>,  [](void* p_ptr){
@@ -285,94 +289,14 @@ typename CowBackingData::USize CowData<T>::_copy_on_write() {
 
 template <typename T>
 Error CowData<T>::resize(CowBackingData::Size p_size, bool p_is_zeroed) {
-	ERR_FAIL_COND_V(p_size < 0, ERR_INVALID_PARAMETER);
-
-	CowBackingData::Size current_size = size();
-
-	if (p_size == current_size) {
-		return OK;
-	}
-
-	if (p_size == 0) {
-		// wants to clean up
-		_unref();
-		_ptr = nullptr;
-		return OK;
-	}
-
-	// possibly changing size, copy on write
-	CowBackingData::USize rc = _copy_on_write();
-
-	CowBackingData::USize current_alloc_size = _get_alloc_size(current_size);
-	CowBackingData::USize alloc_size;
-	ERR_FAIL_COND_V(!_get_alloc_size_checked(p_size, &alloc_size), ERR_OUT_OF_MEMORY);
-
-	if (p_size > current_size) {
-		if (alloc_size != current_alloc_size) {
-			if (current_size == 0) {
-				// alloc from scratch
-				uint8_t *mem_new = (uint8_t *)Memory::alloc_static(alloc_size + CowBackingData::DATA_OFFSET, false);
-				ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
-
-				SafeNumeric<CowBackingData::USize> *_refc_ptr = _get_refcount_ptr(mem_new);
-				CowBackingData::USize *_size_ptr = _get_size_ptr(mem_new);
-				T *_data_ptr = _get_data_ptr(mem_new);
-
-				new (_refc_ptr) SafeNumeric<CowBackingData::USize>(1); //refcount
-				*(_size_ptr) = 0; //size, currently none
-
-				_ptr = _data_ptr;
-
-			} else {
-				uint8_t *mem_new = (uint8_t *)Memory::realloc_static(((uint8_t *)_ptr) - CowBackingData::DATA_OFFSET, alloc_size + CowBackingData::DATA_OFFSET, false);
-				ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
-
-				SafeNumeric<CowBackingData::USize> *_refc_ptr = _get_refcount_ptr(mem_new);
-				T *_data_ptr = _get_data_ptr(mem_new);
-
-				new (_refc_ptr) SafeNumeric<CowBackingData::USize>(rc); //refcount
-
-				_ptr = _data_ptr;
-			}
-		}
-
-		// construct the newly created elements
-
-		if constexpr (!std::is_trivially_constructible_v<T>) {
-			for (CowBackingData::Size i = *_get_size(); i < p_size; i++) {
-				memnew_placement(&(static_cast<T*>(_ptr))[i], T);
-			}
-		} else if (p_is_zeroed) {
-			memset((void *)((static_cast<T*>(_ptr)) + current_size), 0, (p_size - current_size) * sizeof(T));
-		}
-
-		*_get_size() = p_size;
-
-	} else if (p_size < current_size) {
-		if constexpr (!std::is_trivially_destructible_v<T>) {
-			// deinitialize no longer needed elements
-			for (CowBackingData::USize i = p_size; i < *_get_size(); i++) {
-				T *t = &(static_cast<T*>(_ptr))[i];
-				t->~T();
-			}
-		}
-
-		if (alloc_size != current_alloc_size) {
-			uint8_t *mem_new = (uint8_t *)Memory::realloc_static(((uint8_t *)_ptr) - CowBackingData::DATA_OFFSET, alloc_size + CowBackingData::DATA_OFFSET, false);
-			ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
-
-			SafeNumeric<CowBackingData::USize> *_refc_ptr = _get_refcount_ptr(mem_new);
-			T *_data_ptr = _get_data_ptr(mem_new);
-
-			new (_refc_ptr) SafeNumeric<CowBackingData::USize>(rc); //refcount
-
-			_ptr  = _data_ptr;
-		}
-
-		*_get_size() = p_size;
-	}
-
-	return OK;
+	return CowBackingData::_backing_resize(p_size, p_is_zeroed, std::is_trivially_copyable_v<T>, [](void* target_ptr, void* src_ptr){
+		memnew_placement(static_cast<T*>(target_ptr), T(*(static_cast<T*>(src_ptr))));
+	}, std::is_trivially_constructible_v<T>, [](void* p_ptr){
+		memnew_placement(static_cast<T*>(p_ptr), T);
+	}, std::is_trivially_destructible_v<T>,  [](void* p_ptr){
+		T *t = static_cast<T*>(p_ptr);
+		t->~T();
+	}, sizeof(T));
 }
 
 template <typename T>

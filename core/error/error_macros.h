@@ -72,6 +72,11 @@ void _err_print_index_error(const char *p_function, const char *p_file, int p_li
 void _err_print_index_error(const char *p_function, const char *p_file, int p_line, int64_t p_index, int64_t p_size, const char *p_index_str, const char *p_size_str, const String &p_message, bool p_editor_notify = false, bool fatal = false);
 void _err_flush_stdout();
 
+// Winterpixel optimized error handlers
+void _winterpixel_err_print_index_error(int64_t p_index, int64_t p_size, bool p_flush = false, bool p_editor_notify = false, bool fatal = false);
+void _winterpixel_err_print_null_param(bool p_editor_notify = false);
+void _winterpixel_err_print_condition_error(bool p_editor_notify = false);
+
 void _physics_interpolation_warning(const char *p_function, const char *p_file, int p_line, ObjectID p_id, const char *p_warn_string);
 
 #ifdef __GNUC__
@@ -121,11 +126,12 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  * Ensures an integer index `m_index` is less than `m_size` and greater than or equal to 0.
  * If not, the current function returns.
  */
-#define ERR_FAIL_INDEX(m_index, m_size)                                                                         \
-	if (unlikely((m_index) < 0 || (m_index) >= (m_size))) {                                                     \
-		_err_print_index_error(FUNCTION_STR, __FILE__, __LINE__, m_index, m_size, _STR(m_index), _STR(m_size)); \
-		return;                                                                                                 \
-	} else                                                                                                      \
+#define ERR_FAIL_INDEX(m_index, m_size)                                                                               \
+	if (unlikely((m_index) < 0 || (m_index) >= (m_size))) {                                                           \
+		/*_err_print_index_error(FUNCTION_STR, __FILE__, __LINE__, m_index, m_size, _STR(m_index), _STR(m_size));*/   \
+		_winterpixel_err_print_index_error(m_index, m_size);                                                           \
+		return;                                                                                                       \
+	} else                                                                                                            \
 		((void)0)
 
 /**
@@ -134,7 +140,8 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_INDEX_MSG(m_index, m_size, m_msg)                                                                     \
 	if (unlikely((m_index) < 0 || (m_index) >= (m_size))) {                                                            \
-		_err_print_index_error(FUNCTION_STR, __FILE__, __LINE__, m_index, m_size, _STR(m_index), _STR(m_size), m_msg); \
+		/*_err_print_index_error(FUNCTION_STR, __FILE__, __LINE__, m_index, m_size, _STR(m_index), _STR(m_size), m_msg);*/ \
+		_winterpixel_err_print_index_error(m_index, m_size);                                                                            \
 		return;                                                                                                        \
 	} else                                                                                                             \
 		((void)0)
@@ -144,7 +151,8 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_INDEX_EDMSG(m_index, m_size, m_msg)                                                                         \
 	if (unlikely((m_index) < 0 || (m_index) >= (m_size))) {                                                                  \
-		_err_print_index_error(FUNCTION_STR, __FILE__, __LINE__, m_index, m_size, _STR(m_index), _STR(m_size), m_msg, true); \
+		/*_err_print_index_error(FUNCTION_STR, __FILE__, __LINE__, m_index, m_size, _STR(m_index), _STR(m_size), m_msg, true);*/ \
+		_winterpixel_err_print_index_error(m_index, m_size, false, true);                                                    \
 		return;                                                                                                              \
 	} else                                                                                                                   \
 		((void)0)
@@ -158,7 +166,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_INDEX_V(m_index, m_size, m_retval)                                                             \
 	if (unlikely((m_index) < 0 || (m_index) >= (m_size))) {                                                     \
-		_err_print_index_error(FUNCTION_STR, __FILE__, __LINE__, m_index, m_size, _STR(m_index), _STR(m_size)); \
+		_winterpixel_err_print_index_error(m_index, m_size);                                                    \
 		return m_retval;                                                                                        \
 	} else                                                                                                      \
 		((void)0)
@@ -169,7 +177,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_INDEX_V_MSG(m_index, m_size, m_retval, m_msg)                                                         \
 	if (unlikely((m_index) < 0 || (m_index) >= (m_size))) {                                                            \
-		_err_print_index_error(FUNCTION_STR, __FILE__, __LINE__, m_index, m_size, _STR(m_index), _STR(m_size), m_msg); \
+		_winterpixel_err_print_index_error(m_index, m_size);                                                           \
 		return m_retval;                                                                                               \
 	} else                                                                                                             \
 		((void)0)
@@ -179,7 +187,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_INDEX_V_EDMSG(m_index, m_size, m_retval, m_msg)                                                             \
 	if (unlikely((m_index) < 0 || (m_index) >= (m_size))) {                                                                  \
-		_err_print_index_error(FUNCTION_STR, __FILE__, __LINE__, m_index, m_size, _STR(m_index), _STR(m_size), m_msg, true); \
+		_winterpixel_err_print_index_error(m_index, m_size, false, true);                                                    \
 		return m_retval;                                                                                                     \
 	} else                                                                                                                   \
 		((void)0)
@@ -194,8 +202,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define CRASH_BAD_INDEX(m_index, m_size)                                                                                         \
 	if (unlikely((m_index) < 0 || (m_index) >= (m_size))) {                                                                      \
-		_err_print_index_error(FUNCTION_STR, __FILE__, __LINE__, m_index, m_size, _STR(m_index), _STR(m_size), "", false, true); \
-		_err_flush_stdout();                                                                                                     \
+		_winterpixel_err_print_index_error(m_index, m_size, true);                                                                               \
 		GENERATE_TRAP();                                                                                                         \
 	} else                                                                                                                       \
 		((void)0)
@@ -209,8 +216,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define CRASH_BAD_INDEX_MSG(m_index, m_size, m_msg)                                                                                 \
 	if (unlikely((m_index) < 0 || (m_index) >= (m_size))) {                                                                         \
-		_err_print_index_error(FUNCTION_STR, __FILE__, __LINE__, m_index, m_size, _STR(m_index), _STR(m_size), m_msg, false, true); \
-		_err_flush_stdout();                                                                                                        \
+		_winterpixel_err_print_index_error(m_index, m_size, true);                                                                               \
 		GENERATE_TRAP();                                                                                                            \
 	} else                                                                                                                          \
 		((void)0)
@@ -329,7 +335,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_NULL(m_param)                                                                          \
 	if (unlikely(m_param == nullptr)) {                                                                 \
-		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Parameter \"" _STR(m_param) "\" is null."); \
+		_winterpixel_err_print_null_param(); \
 		return;                                                                                         \
 	} else                                                                                              \
 		((void)0)
@@ -340,7 +346,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_NULL_MSG(m_param, m_msg)                                                                      \
 	if (unlikely(m_param == nullptr)) {                                                                        \
-		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Parameter \"" _STR(m_param) "\" is null.", m_msg); \
+		_winterpixel_err_print_null_param(); \
 		return;                                                                                                \
 	} else                                                                                                     \
 		((void)0)
@@ -350,7 +356,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_NULL_EDMSG(m_param, m_msg)                                                                          \
 	if (unlikely(m_param == nullptr)) {                                                                              \
-		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Parameter \"" _STR(m_param) "\" is null.", m_msg, true); \
+		_winterpixel_err_print_null_param(true); \
 		return;                                                                                                      \
 	} else                                                                                                           \
 		((void)0)
@@ -364,7 +370,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_NULL_V(m_param, m_retval)                                                              \
 	if (unlikely(m_param == nullptr)) {                                                                 \
-		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Parameter \"" _STR(m_param) "\" is null."); \
+		_winterpixel_err_print_null_param(); \
 		return m_retval;                                                                                \
 	} else                                                                                              \
 		((void)0)
@@ -375,7 +381,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_NULL_V_MSG(m_param, m_retval, m_msg)                                                          \
 	if (unlikely(m_param == nullptr)) {                                                                        \
-		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Parameter \"" _STR(m_param) "\" is null.", m_msg); \
+		_winterpixel_err_print_null_param(); \
 		return m_retval;                                                                                       \
 	} else                                                                                                     \
 		((void)0)
@@ -385,7 +391,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_NULL_V_EDMSG(m_param, m_retval, m_msg)                                                              \
 	if (unlikely(m_param == nullptr)) {                                                                              \
-		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Parameter \"" _STR(m_param) "\" is null.", m_msg, true); \
+		_winterpixel_err_print_null_param(true); \
 		return m_retval;                                                                                             \
 	} else                                                                                                           \
 		((void)0)
@@ -401,7 +407,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_COND(m_cond)                                                                          \
 	if (unlikely(m_cond)) {                                                                            \
-		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Condition \"" _STR(m_cond) "\" is true."); \
+		_winterpixel_err_print_condition_error(); \
 		return;                                                                                        \
 	} else                                                                                             \
 		((void)0)
@@ -415,7 +421,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_COND_MSG(m_cond, m_msg)                                                                      \
 	if (unlikely(m_cond)) {                                                                                   \
-		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Condition \"" _STR(m_cond) "\" is true.", m_msg); \
+		_winterpixel_err_print_condition_error(); \
 		return;                                                                                               \
 	} else                                                                                                    \
 		((void)0)
@@ -425,7 +431,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_COND_EDMSG(m_cond, m_msg)                                                                          \
 	if (unlikely(m_cond)) {                                                                                         \
-		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Condition \"" _STR(m_cond) "\" is true.", m_msg, true); \
+		_winterpixel_err_print_condition_error(true); \
 		return;                                                                                                     \
 	} else                                                                                                          \
 		((void)0)
@@ -441,7 +447,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_COND_V(m_cond, m_retval)                                                                                         \
 	if (unlikely(m_cond)) {                                                                                                       \
-		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Condition \"" _STR(m_cond) "\" is true. Returning: " _STR(m_retval)); \
+		_winterpixel_err_print_condition_error(); \
 		return m_retval;                                                                                                          \
 	} else                                                                                                                        \
 		((void)0)
@@ -455,7 +461,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_COND_V_MSG(m_cond, m_retval, m_msg)                                                                                     \
 	if (unlikely(m_cond)) {                                                                                                              \
-		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Condition \"" _STR(m_cond) "\" is true. Returning: " _STR(m_retval), m_msg); \
+		_winterpixel_err_print_condition_error(); \
 		return m_retval;                                                                                                                 \
 	} else                                                                                                                               \
 		((void)0)
@@ -465,7 +471,7 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
  */
 #define ERR_FAIL_COND_V_EDMSG(m_cond, m_retval, m_msg)                                                                                         \
 	if (unlikely(m_cond)) {                                                                                                                    \
-		_err_print_error(FUNCTION_STR, __FILE__, __LINE__, "Condition \"" _STR(m_cond) "\" is true. Returning: " _STR(m_retval), m_msg, true); \
+		_winterpixel_err_print_condition_error(true); \
 		return m_retval;                                                                                                                       \
 	} else                                                                                                                                     \
 		((void)0)

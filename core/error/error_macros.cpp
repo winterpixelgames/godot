@@ -179,3 +179,24 @@ void _physics_interpolation_warning(const char *p_function, const char *p_file, 
 	}
 #endif
 }
+
+
+void _winterpixel_err_print_index_error(int64_t p_index, int64_t p_size, bool p_flush, bool p_editor_notify, bool fatal) {
+	//TODO: need to totally rework this, and we don't need so many allocations....
+	String err("Index " + itos(p_index) + " is out of bounds (" + itos(p_size) + ").");
+
+	_err_print_error("", "", 0, err.utf8().get_data(), "", p_editor_notify, ERR_HANDLER_ERROR);
+	
+
+	if(p_flush){
+		_err_flush_stdout();
+	}
+}
+
+void _winterpixel_err_print_null_param(bool p_editor_notify) {
+	_err_print_error("", "", 0, "Parameter is null", "", p_editor_notify, ERR_HANDLER_ERROR);
+}
+
+void _winterpixel_err_print_condition_error(bool p_editor_notify) {
+	_err_print_error("", "", 0, "Condition is true", "", p_editor_notify, ERR_HANDLER_ERROR);
+}
