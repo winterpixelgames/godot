@@ -289,7 +289,6 @@ typename CowBackingData::USize CowData<T>::_copy_on_write() {
 
 template <typename T>
 Error CowData<T>::resize(CowBackingData::Size p_size, bool p_is_zeroed) {
-	
 	return CowBackingData::_backing_resize(p_size, p_is_zeroed, std::is_trivially_copyable_v<T>, [](void* target_ptr, void* src_ptr){
 		memnew_placement(static_cast<T*>(target_ptr), T(*(static_cast<T*>(src_ptr))));
 	}, std::is_trivially_constructible_v<T>, [](void* p_ptr){

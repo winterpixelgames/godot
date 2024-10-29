@@ -512,20 +512,11 @@ public:
 	static uint64_t get_native_struct_size(const StringName &p_name); // Used for asserting
 };
 
-//#define BIND_ENUM_CONSTANT(m_constant) \
-//	::ClassDB::bind_integer_constant(get_class_stringname_static(), __constant_get_enum_name(m_constant, #m_constant), #m_constant, m_constant);
-
 #define BIND_ENUM_CONSTANT(m_constant) \
 	::ClassDB::opt_bind_enum_constant(get_class_stringname_static(), m_constant, #m_constant, m_constant);
 
-//#define BIND_BITFIELD_FLAG(m_constant) \
-//	::ClassDB::bind_integer_constant(get_class_stringname_static(), __constant_get_bitfield_name(m_constant, #m_constant), #m_constant, m_constant, true);
-
 #define BIND_BITFIELD_FLAG(m_constant) \
 	::ClassDB::opt_bind_enum_bitfield_constant(get_class_stringname_static(), m_constant, #m_constant, m_constant);
-
-//#define BIND_CONSTANT(m_constant) \
-//	::ClassDB::bind_integer_constant(get_class_stringname_static(), StringName(), #m_constant, m_constant);
 
 #define BIND_CONSTANT(m_constant) \
 	::ClassDB::opt_bind_constant(get_class_stringname_static(), #m_constant, m_constant);
