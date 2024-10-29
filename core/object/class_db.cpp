@@ -1441,6 +1441,14 @@ void ClassDB::add_property_array(const StringName &p_class, const StringName &p_
 	type->property_list.push_back(PropertyInfo(Variant::NIL, p_path, PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_ARRAY, p_array_element_prefix));
 }
 
+void ClassDB::add_property(const StringName &p_class, const PropertyInfo &p_pinfo, const  char* p_setter, const char* p_getter, int p_index) {
+	add_property(p_class, p_pinfo, _scs_create(p_setter), _scs_create(p_getter), p_index);
+}
+
+void ClassDB::add_property_group(const StringName &p_class, const char* p_name, const char* p_prefix, int p_indent_depth) {
+	add_property_group(p_class, String(p_name), String(p_prefix), p_indent_depth);
+}
+
 // NOTE: For implementation simplicity reasons, this method doesn't allow setters to have optional arguments at the end.
 void ClassDB::add_property(const StringName &p_class, const PropertyInfo &p_pinfo, const StringName &p_setter, const StringName &p_getter, int p_index) {
 	lock.read_lock();

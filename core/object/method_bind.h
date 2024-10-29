@@ -154,7 +154,7 @@ public:
 		} else if (p_arg < method_info.arguments.size()) {
 			return method_info.arguments.get(p_arg);
 		} else {
-			return PropertyInfo(Variant::NIL, "arg_" + itos(p_arg), PROPERTY_HINT_NONE, String(), PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_NIL_IS_VARIANT);
+			return PropertyInfo(Variant::NIL, "", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_NIL_IS_VARIANT);
 		}
 	}
 
@@ -249,7 +249,7 @@ private:
 template <typename T>
 MethodBind *create_vararg_method_bind(void (T::*p_method)(const Variant **, int, Callable::CallError &), const MethodInfo &p_info, bool p_return_nil_is_variant) {
 	MethodBind *a = memnew((MethodBindVarArgT<T>)(p_method, p_info, p_return_nil_is_variant));
-	a->set_instance_class(T::get_class_static());
+	a->set_instance_class(T::get_class_stringname_static());
 	return a;
 }
 
@@ -291,7 +291,7 @@ private:
 template <typename T, typename R>
 MethodBind *create_vararg_method_bind(R (T::*p_method)(const Variant **, int, Callable::CallError &), const MethodInfo &p_info, bool p_return_nil_is_variant) {
 	MethodBind *a = memnew((MethodBindVarArgTR<T, R>)(p_method, p_info, p_return_nil_is_variant));
-	a->set_instance_class(T::get_class_static());
+	a->set_instance_class(T::get_class_stringname_static());
 	return a;
 }
 
@@ -323,9 +323,7 @@ protected:
 	}
 
 	virtual PropertyInfo _gen_argument_type_info(int p_arg) const override {
-		PropertyInfo pi;
-		call_get_argument_type_info<P...>(p_arg, pi);
-		return pi;
+		return call_get_argument_type_info<P...>(p_arg);
 	}
 
 public:
@@ -383,7 +381,7 @@ MethodBind *create_method_bind(void (T::*p_method)(P...)) {
 #else
 	MethodBind *a = memnew((MethodBindT<P...>)(reinterpret_cast<void (MB_T::*)(P...)>(p_method)));
 #endif
-	a->set_instance_class(T::get_class_static());
+	a->set_instance_class(T::get_class_stringname_static());
 	return a;
 }
 
@@ -407,9 +405,7 @@ protected:
 	}
 
 	virtual PropertyInfo _gen_argument_type_info(int p_arg) const override {
-		PropertyInfo pi;
-		call_get_argument_type_info<P...>(p_arg, pi);
-		return pi;
+		return call_get_argument_type_info<P...>(p_arg);
 	}
 
 public:
@@ -468,7 +464,7 @@ MethodBind *create_method_bind(void (T::*p_method)(P...) const) {
 #else
 	MethodBind *a = memnew((MethodBindTC<P...>)(reinterpret_cast<void (MB_T::*)(P...) const>(p_method)));
 #endif
-	a->set_instance_class(T::get_class_static());
+	a->set_instance_class(T::get_class_stringname_static());
 	return a;
 }
 
@@ -494,9 +490,7 @@ protected:
 
 	virtual PropertyInfo _gen_argument_type_info(int p_arg) const override {
 		if (p_arg >= 0 && p_arg < (int)sizeof...(P)) {
-			PropertyInfo pi;
-			call_get_argument_type_info<P...>(p_arg, pi);
-			return pi;
+			return call_get_argument_type_info<P...>(p_arg);
 		} else {
 			return GetTypeInfo<R>::get_class_info();
 		}
@@ -564,7 +558,7 @@ MethodBind *create_method_bind(R (T::*p_method)(P...)) {
 	MethodBind *a = memnew((MethodBindTR<R, P...>)(reinterpret_cast<R (MB_T::*)(P...)>(p_method)));
 #endif
 
-	a->set_instance_class(T::get_class_static());
+	a->set_instance_class(T::get_class_stringname_static());
 	return a;
 }
 
@@ -590,9 +584,7 @@ protected:
 
 	virtual PropertyInfo _gen_argument_type_info(int p_arg) const override {
 		if (p_arg >= 0 && p_arg < (int)sizeof...(P)) {
-			PropertyInfo pi;
-			call_get_argument_type_info<P...>(p_arg, pi);
-			return pi;
+			return call_get_argument_type_info<P...>(p_arg);
 		} else {
 			return GetTypeInfo<R>::get_class_info();
 		}
@@ -660,7 +652,7 @@ MethodBind *create_method_bind(R (T::*p_method)(P...) const) {
 #else
 	MethodBind *a = memnew((MethodBindTRC<R, P...>)(reinterpret_cast<R (MB_T::*)(P...) const>(p_method)));
 #endif
-	a->set_instance_class(T::get_class_static());
+	a->set_instance_class(T::get_class_stringname_static());
 	return a;
 }
 
@@ -682,9 +674,7 @@ protected:
 	}
 
 	virtual PropertyInfo _gen_argument_type_info(int p_arg) const override {
-		PropertyInfo pi;
-		call_get_argument_type_info<P...>(p_arg, pi);
-		return pi;
+		return call_get_argument_type_info<P...>(p_arg);
 	}
 
 public:
@@ -742,9 +732,7 @@ protected:
 
 	virtual PropertyInfo _gen_argument_type_info(int p_arg) const override {
 		if (p_arg >= 0 && p_arg < (int)sizeof...(P)) {
-			PropertyInfo pi;
-			call_get_argument_type_info<P...>(p_arg, pi);
-			return pi;
+			return call_get_argument_type_info<P...>(p_arg);
 		} else {
 			return GetTypeInfo<R>::get_class_info();
 		}

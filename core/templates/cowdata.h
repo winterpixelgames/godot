@@ -199,43 +199,42 @@ private:
 public:
 	void operator=(const CowData<T> &p_from) { _ref(p_from); }
 
-	_FORCE_INLINE_ T *ptrw() {
+	T *ptrw() {
 		_copy_on_write();
 		return (static_cast<T*>(_ptr));
 	}
 
-	_FORCE_INLINE_ const T *ptr() const {
+	const T *ptr() const {
 		return (static_cast<T*>(_ptr));
 	}
 
-	_FORCE_INLINE_ CowBackingData::Size size() const {
+	CowBackingData::Size size() const {
 		return CowBackingData::_backing_size();
 	}
 
-	_FORCE_INLINE_ void clear() { resize(0); }
-	_FORCE_INLINE_ bool is_empty() const { return _ptr == nullptr; }
+	void clear() { resize(0); }
+	bool is_empty() const { return _ptr == nullptr; }
 
-	_FORCE_INLINE_ void set(CowBackingData::Size p_index, const T &p_elem) {
+	void set(CowBackingData::Size p_index, const T &p_elem) {
 		ERR_FAIL_INDEX(p_index, size());
 		_copy_on_write();
 		(static_cast<T*>(_ptr))[p_index] = p_elem;
 	}
 
-	_FORCE_INLINE_ T &get_m(CowBackingData::Size p_index) {
+	T &get_m(CowBackingData::Size p_index) {
 		CRASH_BAD_INDEX(p_index, size());
 		_copy_on_write();
 		return (static_cast<T*>(_ptr))[p_index];
 	}
 
-	_FORCE_INLINE_ const T &get(CowBackingData::Size p_index) const {
+	const T &get(CowBackingData::Size p_index) const {
 		CRASH_BAD_INDEX(p_index, size());
-
 		return (static_cast<T*>(_ptr))[p_index];
 	}
 
 	Error resize(CowBackingData::Size p_size, bool p_is_zeroed=false);
 
-	_FORCE_INLINE_ void remove_at(CowBackingData::Size p_index) {
+	void remove_at(CowBackingData::Size p_index) {
 		ERR_FAIL_INDEX(p_index, size());
 		T *p = ptrw();
 		CowBackingData::Size len = size();

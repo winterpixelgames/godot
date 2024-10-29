@@ -414,6 +414,13 @@ public:
 		return _bind_vararg_method(bind, p_name, p_default_args, true);
 	}
 
+		// Winterpixel optimizations
+	static void opt_bind_enum_constant_impl(const StringName &p_class, const StringName &p_enum, const char* name, int64_t val);
+	static void opt_bind_enum_bitfield_constant_impl(const StringName &p_class, const StringName &p_enum, const char* name, int64_t val);
+	static void opt_bind_constant(const StringName &p_class, const char* name, int64_t val);
+	static void add_property(const StringName &p_class, const PropertyInfo &p_pinfo, const char* p_setter, const char* p_getter, int p_index = -1);
+	static void add_property_group(const StringName &p_class, const char* p_name, const char* p_prefix = "", int p_indent_depth = 0);
+
 	static void bind_method_custom(const StringName &p_class, MethodBind *p_method);
 	static void bind_compatibility_method_custom(const StringName &p_class, MethodBind *p_method);
 
@@ -455,11 +462,6 @@ public:
 	static void get_virtual_methods(const StringName &p_class, List<MethodInfo> *p_methods, bool p_no_inheritance = false);
 	static void add_extension_class_virtual_method(const StringName &p_class, const GDExtensionClassVirtualMethodInfo *p_method_info);
 
-	// Winterpixel optimizations
-	static void opt_bind_enum_constant_impl(const StringName &p_class, const StringName &p_enum, const char* name, int64_t val);
-	static void opt_bind_enum_bitfield_constant_impl(const StringName &p_class, const StringName &p_enum, const char* name, int64_t val);
-	static void opt_bind_constant(const StringName &p_class, const char* name, int64_t val);
-	
 	template <typename T>
 	static void opt_bind_enum_constant(const StringName &p_class, T param, const char* name, int64_t val) {
 		opt_bind_enum_constant_impl(p_class, __constant_get_enum_name(param, name), name, val);

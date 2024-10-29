@@ -696,30 +696,26 @@ template <typename... P>
 Variant::Type call_get_argument_type(int p_arg) {
 	Variant::Type type = Variant::NIL;
 	int index = 0;
+	((p_arg == index ? (void)(type = GetTypeInfo<P>::VARIANT_TYPE) : void(), ++index), ...);
+	return type;
+	/*
 	// I think rocket science is simpler than modern C++.
 	using expand_type = int[];
 	expand_type a{ 0, (call_get_argument_type_helper<P>(p_arg, index, type), 0)... };
 	(void)a; // Suppress (valid, but unavoidable) -Wunused-variable warning.
 	(void)index; // Suppress GCC warning.
 	return type;
-}
-
-template <typename Q>
-void call_get_argument_type_info_helper(int p_arg, int &index, PropertyInfo &info) {
-	if (p_arg == index) {
-		info = GetTypeInfo<Q>::get_class_info();
-	}
-	index++;
+	*/
 }
 
 template <typename... P>
-void call_get_argument_type_info(int p_arg, PropertyInfo &info) {
-	int index = 0;
-	// I think rocket science is simpler than modern C++.
-	using expand_type = int[];
-	expand_type a{ 0, (call_get_argument_type_info_helper<P>(p_arg, index, info), 0)... };
-	(void)a; // Suppress (valid, but unavoidable) -Wunused-variable warning.
-	(void)index; // Suppress GCC warning.
+PropertyInfo call_get_argument_type_info(int p_arg) {
+	// If we could copy ellide, PropertyInfo info this symbol could be eliminated
+	// NVRO doesn't work due to dynamic assignment path in fold expression... :(
+    int index = 0;
+    PropertyInfo info;
+	((p_arg == index ? (void)(info = GetTypeInfo<P>::get_class_info()) : void(), ++index), ...);
+	return info;
 }
 
 #ifdef DEBUG_METHODS_ENABLED

@@ -98,7 +98,7 @@ struct GetTypeInfo<TypedDictionary<K, V>> {
 	static const Variant::Type VARIANT_TYPE = Variant::DICTIONARY;
 	static const GodotTypeInfo::Metadata METADATA = GodotTypeInfo::METADATA_NONE;
 	static inline PropertyInfo get_class_info() {
-		return PropertyInfo(Variant::DICTIONARY, String(), PROPERTY_HINT_DICTIONARY_TYPE, vformat("%s;%s", K::get_class_static(), V::get_class_static()));
+		return PropertyInfo(Variant::DICTIONARY, "", PROPERTY_HINT_DICTIONARY_TYPE, vformat("%s;%s", K::get_class_static(), V::get_class_static()));
 	}
 };
 
@@ -107,7 +107,7 @@ struct GetTypeInfo<const TypedDictionary<K, V> &> {
 	static const Variant::Type VARIANT_TYPE = Variant::DICTIONARY;
 	static const GodotTypeInfo::Metadata METADATA = GodotTypeInfo::METADATA_NONE;
 	static inline PropertyInfo get_class_info() {
-		return PropertyInfo(Variant::DICTIONARY, String(), PROPERTY_HINT_DICTIONARY_TYPE, vformat("%s;%s", K::get_class_static(), V::get_class_static()));
+		return PropertyInfo(Variant::DICTIONARY, "", PROPERTY_HINT_DICTIONARY_TYPE, vformat("%s;%s", K::get_class_static(), V::get_class_static()));
 	}
 };
 
@@ -141,7 +141,7 @@ struct GetTypeInfo<const TypedDictionary<K, V> &> {
 		static const Variant::Type VARIANT_TYPE = Variant::DICTIONARY;                                                                             \
 		static const GodotTypeInfo::Metadata METADATA = GodotTypeInfo::METADATA_NONE;                                                              \
 		static inline PropertyInfo get_class_info() {                                                                                              \
-			return PropertyInfo(Variant::DICTIONARY, String(), PROPERTY_HINT_DICTIONARY_TYPE,                                                      \
+			return PropertyInfo(Variant::DICTIONARY, "", PROPERTY_HINT_DICTIONARY_TYPE,                                                      \
 					vformat("%s;%s", T::get_class_static(), m_variant_type == Variant::NIL ? "Variant" : Variant::get_type_name(m_variant_type))); \
 		}                                                                                                                                          \
 	};                                                                                                                                             \
@@ -150,7 +150,7 @@ struct GetTypeInfo<const TypedDictionary<K, V> &> {
 		static const Variant::Type VARIANT_TYPE = Variant::DICTIONARY;                                                                             \
 		static const GodotTypeInfo::Metadata METADATA = GodotTypeInfo::METADATA_NONE;                                                              \
 		static inline PropertyInfo get_class_info() {                                                                                              \
-			return PropertyInfo(Variant::DICTIONARY, String(), PROPERTY_HINT_DICTIONARY_TYPE,                                                      \
+			return PropertyInfo(Variant::DICTIONARY, "", PROPERTY_HINT_DICTIONARY_TYPE,                                                      \
 					vformat("%s;%s", T::get_class_static(), m_variant_type == Variant::NIL ? "Variant" : Variant::get_type_name(m_variant_type))); \
 		}                                                                                                                                          \
 	};                                                                                                                                             \
@@ -181,7 +181,7 @@ struct GetTypeInfo<const TypedDictionary<K, V> &> {
 		static const Variant::Type VARIANT_TYPE = Variant::DICTIONARY;                                                                             \
 		static const GodotTypeInfo::Metadata METADATA = GodotTypeInfo::METADATA_NONE;                                                              \
 		static inline PropertyInfo get_class_info() {                                                                                              \
-			return PropertyInfo(Variant::DICTIONARY, String(), PROPERTY_HINT_DICTIONARY_TYPE,                                                      \
+			return PropertyInfo(Variant::DICTIONARY, "", PROPERTY_HINT_DICTIONARY_TYPE,                                                      \
 					vformat("%s;%s", m_variant_type == Variant::NIL ? "Variant" : Variant::get_type_name(m_variant_type), T::get_class_static())); \
 		}                                                                                                                                          \
 	};                                                                                                                                             \
@@ -190,7 +190,7 @@ struct GetTypeInfo<const TypedDictionary<K, V> &> {
 		static const Variant::Type VARIANT_TYPE = Variant::DICTIONARY;                                                                             \
 		static const GodotTypeInfo::Metadata METADATA = GodotTypeInfo::METADATA_NONE;                                                              \
 		static inline PropertyInfo get_class_info() {                                                                                              \
-			return PropertyInfo(Variant::DICTIONARY, String(), PROPERTY_HINT_DICTIONARY_TYPE,                                                      \
+			return PropertyInfo(Variant::DICTIONARY, "", PROPERTY_HINT_DICTIONARY_TYPE,                                                      \
 					vformat("%s;%s", m_variant_type == Variant::NIL ? "Variant" : Variant::get_type_name(m_variant_type), T::get_class_static())); \
 		}                                                                                                                                          \
 	};
@@ -223,7 +223,7 @@ struct GetTypeInfo<const TypedDictionary<K, V> &> {
 		static const Variant::Type VARIANT_TYPE = Variant::DICTIONARY;                                                            \
 		static const GodotTypeInfo::Metadata METADATA = GodotTypeInfo::METADATA_NONE;                                             \
 		static inline PropertyInfo get_class_info() {                                                                             \
-			return PropertyInfo(Variant::DICTIONARY, String(), PROPERTY_HINT_DICTIONARY_TYPE,                                     \
+			return PropertyInfo(Variant::DICTIONARY, "", PROPERTY_HINT_DICTIONARY_TYPE,                                     \
 					vformat("%s;%s", m_variant_type_key == Variant::NIL ? "Variant" : Variant::get_type_name(m_variant_type_key), \
 							m_variant_type_value == Variant::NIL ? "Variant" : Variant::get_type_name(m_variant_type_value)));    \
 		}                                                                                                                         \
@@ -233,7 +233,7 @@ struct GetTypeInfo<const TypedDictionary<K, V> &> {
 		static const Variant::Type VARIANT_TYPE = Variant::DICTIONARY;                                                            \
 		static const GodotTypeInfo::Metadata METADATA = GodotTypeInfo::METADATA_NONE;                                             \
 		static inline PropertyInfo get_class_info() {                                                                             \
-			return PropertyInfo(Variant::DICTIONARY, String(), PROPERTY_HINT_DICTIONARY_TYPE,                                     \
+			return PropertyInfo(Variant::DICTIONARY, "", PROPERTY_HINT_DICTIONARY_TYPE,                                     \
 					vformat("%s;%s", m_variant_type_key == Variant::NIL ? "Variant" : Variant::get_type_name(m_variant_type_key), \
 							m_variant_type_value == Variant::NIL ? "Variant" : Variant::get_type_name(m_variant_type_value)));    \
 		}                                                                                                                         \
