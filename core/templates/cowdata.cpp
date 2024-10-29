@@ -173,7 +173,7 @@ Error CowBackingData::_backing_resize(CowBackingData::Size p_size, bool p_is_zer
 		}
 
 		// construct the newly created elements
-		if (p_is_trivially_constructible) {
+		if (!p_is_trivially_constructible) {
 			for (CowBackingData::Size i = *_backing_get_size(); i < p_size; i++) {
 				uint8_t *src_ptr = (uint8_t *)_ptr;
 				p_constructor_func((void*)(&(src_ptr[i*p_element_size])));
@@ -186,7 +186,7 @@ Error CowBackingData::_backing_resize(CowBackingData::Size p_size, bool p_is_zer
 		*_backing_get_size() = p_size;
 
 	} else if (p_size < current_size) {
-		if (p_is_trivially_destructible) {
+		if (!p_is_trivially_destructible) {
 			// deinitialize no longer needed elements
 			for (CowBackingData::USize i = p_size; i < *_backing_get_size(); i++) {
 				uint8_t *ptr = (uint8_t *)_ptr;
