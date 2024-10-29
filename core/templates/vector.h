@@ -230,11 +230,12 @@ public:
 		_FORCE_INLINE_ bool operator!=(const Iterator &b) const { return elem_ptr != b.elem_ptr; }
 
 		Iterator(T *p_ptr) { elem_ptr = p_ptr; }
+		Iterator(const T *p_ptr) { elem_ptr = (T *)p_ptr; }
 		Iterator() {}
 		Iterator(const Iterator &p_it) { elem_ptr = p_it.elem_ptr; }
 
 	private:
-		T *elem_ptr = nullptr;
+		mutable T *elem_ptr = nullptr;
 	};
 
 	struct ConstIterator {
@@ -263,10 +264,10 @@ public:
 	};
 
 	_FORCE_INLINE_ Iterator begin() {
-		return Iterator(ptrw());
+		return Iterator(ptr());
 	}
 	_FORCE_INLINE_ Iterator end() {
-		return Iterator(ptrw() + size());
+		return Iterator(ptr() + size());
 	}
 
 	_FORCE_INLINE_ ConstIterator begin() const {

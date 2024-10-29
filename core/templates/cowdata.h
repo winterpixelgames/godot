@@ -289,6 +289,7 @@ typename CowBackingData::USize CowData<T>::_copy_on_write() {
 
 template <typename T>
 Error CowData<T>::resize(CowBackingData::Size p_size, bool p_is_zeroed) {
+	/*
 	return CowBackingData::_backing_resize(p_size, p_is_zeroed, std::is_trivially_copyable_v<T>, [](void* target_ptr, void* src_ptr){
 		memnew_placement(static_cast<T*>(target_ptr), T(*(static_cast<T*>(src_ptr))));
 	}, std::is_trivially_constructible_v<T>, [](void* p_ptr){
@@ -297,6 +298,96 @@ Error CowData<T>::resize(CowBackingData::Size p_size, bool p_is_zeroed) {
 		T *t = static_cast<T*>(p_ptr);
 		t->~T();
 	}, sizeof(T));
+	*/
+
+	ERR_FAIL_COND_V(p_size < 0, ERR_INVALID_PARAMETER);
+
+	CowBackingData::Size current_size = size();
+
+	if (p_size == current_size) {
+			return OK;
+	}
+
+	if (p_size == 0) {
+			// wants to clean up
+			_unref();
+			_ptr = nullptr;
+			return OK;
+	}
+
+	// possibly changing size, copy on write
+	CowBackingData::USize rc = _copy_on_write();
+
+	CowBackingData::USize current_alloc_size = _get_alloc_size(current_size);
+	CowBackingData::USize alloc_size;
+	ERR_FAIL_COND_V(!_get_alloc_size_checked(p_size, &alloc_size), ERR_OUT_OF_MEMORY);
+
+	if (p_size > current_size) {
+			if (alloc_size != current_alloc_size) {
+					if (current_size == 0) {
+							// alloc from scratch
+							uint8_t *mem_new = (uint8_t *)Memory::alloc_static(alloc_size + CowBackingData::DATA_OFFSET, false);
+							ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
+
+							SafeNumeric<CowBackingData::USize> *_refc_ptr = _get_refcount_ptr(mem_new);
+							CowBackingData::USize *_size_ptr = _get_size_ptr(mem_new);
+							T *_data_ptr = _get_data_ptr(mem_new);
+
+							new (_refc_ptr) SafeNumeric<CowBackingData::USize>(1); //refcount
+							*(_size_ptr) = 0; //size, currently none
+
+							_ptr = _data_ptr;
+
+					} else {
+							uint8_t *mem_new = (uint8_t *)Memory::realloc_static(((uint8_t *)_ptr) - CowBackingData::DATA_OFFSET, alloc_size + CowBackingData::DATA_OFFSET, false);
+							ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
+
+							SafeNumeric<CowBackingData::USize> *_refc_ptr = _get_refcount_ptr(mem_new);
+							T *_data_ptr = _get_data_ptr(mem_new);
+
+							new (_refc_ptr) SafeNumeric<CowBackingData::USize>(rc); //refcount
+
+							_ptr = _data_ptr;
+					}
+			}
+
+			// construct the newly created elements
+
+			if constexpr (!std::is_trivially_constructible_v<T>) {
+					for (CowBackingData::Size i = *_get_size(); i < p_size; i++) {
+							memnew_placement(&(static_cast<T*>(_ptr))[i], T);
+					}
+			} else if (p_is_zeroed) {
+					memset((void *)((static_cast<T*>(_ptr)) + current_size), 0, (p_size - current_size) * sizeof(T));
+			}
+			*_get_size() = p_size;
+
+	} else if (p_size < current_size) {
+			if constexpr (!std::is_trivially_destructible_v<T>) {
+					// deinitialize no longer needed elements
+					for (CowBackingData::USize i = p_size; i < *_get_size(); i++) {
+							T *t = &(static_cast<T*>(_ptr))[i];
+							t->~T();
+					}
+			}
+
+			if (alloc_size != current_alloc_size) {
+					uint8_t *mem_new = (uint8_t *)Memory::realloc_static(((uint8_t *)_ptr) - CowBackingData::DATA_OFFSET, alloc_size + CowBackingData::DATA_OFFSET, false);
+					ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
+
+					SafeNumeric<CowBackingData::USize> *_refc_ptr = _get_refcount_ptr(mem_new);
+					T *_data_ptr = _get_data_ptr(mem_new);
+
+					new (_refc_ptr) SafeNumeric<CowBackingData::USize>(rc); //refcount
+
+					_ptr  = _data_ptr;
+			}
+
+			*_get_size() = p_size;
+	}
+
+	return OK;
+
 }
 
 template <typename T>
