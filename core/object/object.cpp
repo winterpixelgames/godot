@@ -2211,6 +2211,28 @@ void postinitialize_handler(Object *p_object) {
 	p_object->_postinitialize();
 }
 
+Object *ObjectDB::get_instance(ObjectID p_instance_id) {
+		uint64_t id = p_instance_id;
+		uint32_t slot = id & OBJECTDB_SLOT_MAX_COUNT_MASK;
+
+		ERR_FAIL_COND_V(slot >= slot_max, nullptr); // This should never happen unless RID is corrupted.
+
+		spin_lock.lock();
+
+		uint64_t validator = (id >> OBJECTDB_SLOT_MAX_COUNT_BITS) & OBJECTDB_VALIDATOR_MASK;
+
+		if (unlikely(object_slots[slot].validator != validator)) {
+			spin_lock.unlock();
+			return nullptr;
+		}
+
+		Object *object = object_slots[slot].object;
+
+		spin_lock.unlock();
+
+		return object;
+	}
+
 void ObjectDB::debug_objects(DebugFunc p_func) {
 	spin_lock.lock();
 
