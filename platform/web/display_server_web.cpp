@@ -982,6 +982,9 @@ void DisplayServerWeb::_send_window_event_callback(int p_notification) {
 }
 
 void DisplayServerWeb::set_icon(const Ref<Image> &p_icon) {
+	// this is really slow, so we're not going to do this, and you can do this
+	// in your web export template
+	return;
 	if (p_icon.is_valid()) {
 		ERR_FAIL_COND(p_icon->get_width() <= 0 || p_icon->get_height() <= 0);
 
