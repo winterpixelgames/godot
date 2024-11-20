@@ -309,6 +309,18 @@ void ShaderGLES3::_compile_specialization(Version::Specialization &spec, uint32_
 	spec.ok = false;
 	GLint status;
 
+
+	// Implement asynchronous and stall free shader compilation on platforms that support it (web)
+	bool async_compile = false;
+	static bool check_async = false;
+	if(!check_async) {
+		check_async = true;
+		if ( GLES3::Config::get_singleton()->extensions.has("GL_KHR_parallel_shader_compile")) {
+			async_compile = true;
+			print_line("GLES shader supports GL_KHR_parallel_shader_compile");
+		}
+	}
+
 	//vertex stage
 	{
 		StringBuilder builder;
@@ -768,6 +780,7 @@ bool ShaderGLES3::version_free(RID p_version) {
 bool ShaderGLES3::shader_cache_cleanup_on_start = false;
 
 ShaderGLES3::ShaderGLES3() {
+
 }
 
 void ShaderGLES3::initialize(const String &p_general_defines, int p_base_texture_index) {
