@@ -43,51 +43,64 @@ PostEffects *PostEffects::get_singleton() {
 
 PostEffects::PostEffects() {
 	singleton = this;
+}
 
-	post.shader.initialize();
-	post.shader_version = post.shader.version_create();
-	post.shader.version_bind_shader(post.shader_version, PostShaderGLES3::MODE_DEFAULT);
+void PostEffects::lazy_init() {
+	if(!_initialized) {
+		_initialized = true;
 
-	{ // Screen Triangle.
-		glGenBuffers(1, &screen_triangle);
-		glBindBuffer(GL_ARRAY_BUFFER, screen_triangle);
+		post.shader.initialize();
+		post.shader_version = post.shader.version_create();
+		post.shader.version_bind_shader(post.shader_version, PostShaderGLES3::MODE_DEFAULT);
 
-		const float qv[6] = {
-			-1.0f,
-			-1.0f,
-			3.0f,
-			-1.0f,
-			-1.0f,
-			3.0f,
-		};
+		{ // Screen Triangle.
+			glGenBuffers(1, &screen_triangle);
+			glBindBuffer(GL_ARRAY_BUFFER, screen_triangle);
 
-		glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6, qv, GL_STATIC_DRAW);
-		glBindBuffer(GL_ARRAY_BUFFER, 0); //unbind
+			const float qv[6] = {
+				-1.0f,
+				-1.0f,
+				3.0f,
+				-1.0f,
+				-1.0f,
+				3.0f,
+			};
 
-		glGenVertexArrays(1, &screen_triangle_array);
-		glBindVertexArray(screen_triangle_array);
-		glBindBuffer(GL_ARRAY_BUFFER, screen_triangle);
-		glVertexAttribPointer(RS::ARRAY_VERTEX, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, nullptr);
-		glEnableVertexAttribArray(RS::ARRAY_VERTEX);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0); //unbind
+			glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6, qv, GL_STATIC_DRAW);
+			glBindBuffer(GL_ARRAY_BUFFER, 0); //unbind
+
+			glGenVertexArrays(1, &screen_triangle_array);
+			glBindVertexArray(screen_triangle_array);
+			glBindBuffer(GL_ARRAY_BUFFER, screen_triangle);
+			glVertexAttribPointer(RS::ARRAY_VERTEX, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, nullptr);
+			glEnableVertexAttribArray(RS::ARRAY_VERTEX);
+			glBindVertexArray(0);
+			glBindBuffer(GL_ARRAY_BUFFER, 0); //unbind
+		}
+
 	}
 }
 
+
 PostEffects::~PostEffects() {
 	singleton = nullptr;
-	glDeleteBuffers(1, &screen_triangle);
-	glDeleteVertexArrays(1, &screen_triangle_array);
-	post.shader.version_free(post.shader_version);
+	if(_initialized) { 
+		_initialized = false;
+		glDeleteBuffers(1, &screen_triangle);
+		glDeleteVertexArrays(1, &screen_triangle_array);
+		post.shader.version_free(post.shader_version);
+	}
 }
 
 void PostEffects::_draw_screen_triangle() {
+	lazy_init();
 	glBindVertexArray(screen_triangle_array);
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 	glBindVertexArray(0);
 }
 
 void PostEffects::post_copy(GLuint p_dest_framebuffer, Size2i p_dest_size, GLuint p_source_color, Size2i p_source_size, float p_luminance_multiplier, const Glow::GLOWLEVEL *p_glow_buffers, float p_glow_intensity, uint32_t p_view, bool p_use_multiview, uint64_t p_spec_constants) {
+	lazy_init();
 	glDisable(GL_DEPTH_TEST);
 	glDepthMask(GL_FALSE);
 	glDisable(GL_BLEND);

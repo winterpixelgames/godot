@@ -44,78 +44,89 @@ CopyEffects *CopyEffects::get_singleton() {
 CopyEffects::CopyEffects() {
 	singleton = this;
 
-	copy.shader.initialize();
-	copy.shader_version = copy.shader.version_create();
-	copy.shader.version_bind_shader(copy.shader_version, CopyShaderGLES3::MODE_DEFAULT);
+}
 
-	{ // Screen Triangle.
-		glGenBuffers(1, &screen_triangle);
-		glBindBuffer(GL_ARRAY_BUFFER, screen_triangle);
+void CopyEffects::lazy_init() {
+	if(!_initialized) {
+		_initialized = true;
 
-		const float qv[6] = {
-			-1.0f,
-			-1.0f,
-			3.0f,
-			-1.0f,
-			-1.0f,
-			3.0f,
-		};
+		copy.shader.initialize();
+		copy.shader_version = copy.shader.version_create();
+		copy.shader.version_bind_shader(copy.shader_version, CopyShaderGLES3::MODE_DEFAULT);
 
-		glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6, qv, GL_STATIC_DRAW);
-		glBindBuffer(GL_ARRAY_BUFFER, 0); //unbind
+		{ // Screen Triangle.
+			glGenBuffers(1, &screen_triangle);
+			glBindBuffer(GL_ARRAY_BUFFER, screen_triangle);
 
-		glGenVertexArrays(1, &screen_triangle_array);
-		glBindVertexArray(screen_triangle_array);
-		glBindBuffer(GL_ARRAY_BUFFER, screen_triangle);
-		glVertexAttribPointer(RS::ARRAY_VERTEX, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, nullptr);
-		glEnableVertexAttribArray(RS::ARRAY_VERTEX);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0); //unbind
-	}
+			const float qv[6] = {
+				-1.0f,
+				-1.0f,
+				3.0f,
+				-1.0f,
+				-1.0f,
+				3.0f,
+			};
 
-	{ // Screen Quad
+			glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6, qv, GL_STATIC_DRAW);
+			glBindBuffer(GL_ARRAY_BUFFER, 0); //unbind
 
-		glGenBuffers(1, &quad);
-		glBindBuffer(GL_ARRAY_BUFFER, quad);
+			glGenVertexArrays(1, &screen_triangle_array);
+			glBindVertexArray(screen_triangle_array);
+			glBindBuffer(GL_ARRAY_BUFFER, screen_triangle);
+			glVertexAttribPointer(RS::ARRAY_VERTEX, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, nullptr);
+			glEnableVertexAttribArray(RS::ARRAY_VERTEX);
+			glBindVertexArray(0);
+			glBindBuffer(GL_ARRAY_BUFFER, 0); //unbind
+		}
 
-		const float qv[12] = {
-			-1.0f,
-			-1.0f,
-			1.0f,
-			-1.0f,
-			1.0f,
-			1.0f,
-			-1.0f,
-			-1.0f,
-			1.0f,
-			1.0f,
-			-1.0f,
-			1.0f,
-		};
+		{ // Screen Quad
 
-		glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 12, qv, GL_STATIC_DRAW);
-		glBindBuffer(GL_ARRAY_BUFFER, 0); //unbind
+			glGenBuffers(1, &quad);
+			glBindBuffer(GL_ARRAY_BUFFER, quad);
 
-		glGenVertexArrays(1, &quad_array);
-		glBindVertexArray(quad_array);
-		glBindBuffer(GL_ARRAY_BUFFER, quad);
-		glVertexAttribPointer(RS::ARRAY_VERTEX, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, nullptr);
-		glEnableVertexAttribArray(RS::ARRAY_VERTEX);
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0); //unbind
+			const float qv[12] = {
+				-1.0f,
+				-1.0f,
+				1.0f,
+				-1.0f,
+				1.0f,
+				1.0f,
+				-1.0f,
+				-1.0f,
+				1.0f,
+				1.0f,
+				-1.0f,
+				1.0f,
+			};
+
+			glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 12, qv, GL_STATIC_DRAW);
+			glBindBuffer(GL_ARRAY_BUFFER, 0); //unbind
+
+			glGenVertexArrays(1, &quad_array);
+			glBindVertexArray(quad_array);
+			glBindBuffer(GL_ARRAY_BUFFER, quad);
+			glVertexAttribPointer(RS::ARRAY_VERTEX, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, nullptr);
+			glEnableVertexAttribArray(RS::ARRAY_VERTEX);
+			glBindVertexArray(0);
+			glBindBuffer(GL_ARRAY_BUFFER, 0); //unbind
+		}
 	}
 }
 
 CopyEffects::~CopyEffects() {
 	singleton = nullptr;
-	glDeleteBuffers(1, &screen_triangle);
-	glDeleteVertexArrays(1, &screen_triangle_array);
-	glDeleteBuffers(1, &quad);
-	glDeleteVertexArrays(1, &quad_array);
-	copy.shader.version_free(copy.shader_version);
+	if(_initialized) {
+		_initialized = false;
+		glDeleteBuffers(1, &screen_triangle);
+		glDeleteVertexArrays(1, &screen_triangle_array);
+		glDeleteBuffers(1, &quad);
+		glDeleteVertexArrays(1, &quad_array);
+		copy.shader.version_free(copy.shader_version);
+	}
 }
 
 void CopyEffects::copy_to_rect(const Rect2 &p_rect) {
+	lazy_init();
 	bool success = copy.shader.version_bind_shader(copy.shader_version, CopyShaderGLES3::MODE_COPY_SECTION);
 	if (!success) {
 		return;
@@ -126,6 +137,7 @@ void CopyEffects::copy_to_rect(const Rect2 &p_rect) {
 }
 
 void CopyEffects::copy_to_rect_3d(const Rect2 &p_rect, float p_layer, int p_type, float p_lod) {
+	lazy_init();
 	ERR_FAIL_COND(p_type != Texture::TYPE_LAYERED && p_type != Texture::TYPE_3D);
 
 	CopyShaderGLES3::ShaderVariant variant = p_type == Texture::TYPE_LAYERED
@@ -144,6 +156,7 @@ void CopyEffects::copy_to_rect_3d(const Rect2 &p_rect, float p_layer, int p_type
 }
 
 void CopyEffects::copy_to_and_from_rect(const Rect2 &p_rect) {
+	lazy_init();
 	bool success = copy.shader.version_bind_shader(copy.shader_version, CopyShaderGLES3::MODE_COPY_SECTION_SOURCE);
 	if (!success) {
 		return;
@@ -156,6 +169,7 @@ void CopyEffects::copy_to_and_from_rect(const Rect2 &p_rect) {
 }
 
 void CopyEffects::copy_screen(float p_multiply) {
+	lazy_init();
 	bool success = copy.shader.version_bind_shader(copy.shader_version, CopyShaderGLES3::MODE_SCREEN);
 	if (!success) {
 		return;
@@ -167,6 +181,7 @@ void CopyEffects::copy_screen(float p_multiply) {
 }
 
 void CopyEffects::copy_cube_to_rect(const Rect2 &p_rect) {
+	lazy_init();
 	bool success = copy.shader.version_bind_shader(copy.shader_version, CopyShaderGLES3::MODE_CUBE_TO_OCTAHEDRAL);
 	if (!success) {
 		return;
@@ -177,6 +192,7 @@ void CopyEffects::copy_cube_to_rect(const Rect2 &p_rect) {
 }
 
 void CopyEffects::copy_cube_to_panorama(float p_mip_level) {
+	lazy_init();
 	bool success = copy.shader.version_bind_shader(copy.shader_version, CopyShaderGLES3::MODE_CUBE_TO_PANORAMA);
 	if (!success) {
 		return;
@@ -213,6 +229,7 @@ void CopyEffects::bilinear_blur(GLuint p_source_texture, int p_mipmap_count, con
 
 // Intended for approximating a gaussian blur. Used for 2D backbuffer mipmaps. Slightly less efficient than bilinear_blur().
 void CopyEffects::gaussian_blur(GLuint p_source_texture, int p_mipmap_count, const Rect2i &p_region, const Size2i &p_size) {
+	lazy_init();
 	GLuint framebuffer;
 	glGenFramebuffers(1, &framebuffer);
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -285,6 +302,7 @@ void CopyEffects::gaussian_blur(GLuint p_source_texture, int p_mipmap_count, con
 }
 
 void CopyEffects::set_color(const Color &p_color, const Rect2i &p_region) {
+	lazy_init();
 	bool success = copy.shader.version_bind_shader(copy.shader_version, CopyShaderGLES3::MODE_SIMPLE_COLOR);
 	if (!success) {
 		return;
@@ -296,12 +314,14 @@ void CopyEffects::set_color(const Color &p_color, const Rect2i &p_region) {
 }
 
 void CopyEffects::draw_screen_triangle() {
+	lazy_init();
 	glBindVertexArray(screen_triangle_array);
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 	glBindVertexArray(0);
 }
 
 void CopyEffects::draw_screen_quad() {
+	lazy_init();
 	glBindVertexArray(quad_array);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);

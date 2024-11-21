@@ -193,6 +193,8 @@ protected:
 		Version *version = version_owner.get_or_null(p_version);
 		ERR_FAIL_NULL_V(version, false);
 
+		// Why do all these together?
+		// Defer the specializations to runtime
 		if (version->variants.size() == 0) {
 			_initialize_version(version); //may lack initialization
 		}
@@ -258,6 +260,7 @@ public:
 	RS::ShaderNativeSourceCode version_get_native_source_code(RID p_version);
 
 	void initialize(const String &p_general_defines = "", int p_base_texture_index = 0);
+	void async_compile_poll();
 	virtual ~ShaderGLES3();
 };
 

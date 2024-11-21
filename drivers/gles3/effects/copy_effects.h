@@ -54,6 +54,9 @@ private:
 	GLuint quad = 0;
 	GLuint quad_array = 0;
 
+	bool _initialized{false};
+	void lazy_init();
+
 public:
 	static CopyEffects *get_singleton();
 

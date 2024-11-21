@@ -53,6 +53,9 @@ private:
 
 	void _draw_screen_triangle();
 
+	bool _initialized{false};
+	void lazy_init();
+
 public:
 	static PostEffects *get_singleton();
 
