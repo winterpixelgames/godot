@@ -37,7 +37,7 @@ void initialize_basis_universal_module(ModuleInitializationLevel p_level) {
 		return;
 	}
 
-	basis_universal_init();
+	//basis_universal_init();
 
 #ifdef TOOLS_ENABLED
 	Image::basis_universal_packer = basis_universal_packer;

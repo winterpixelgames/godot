@@ -37,7 +37,14 @@
 #include <encoder/basisu_comp.h>
 #endif
 
+static bool _basis_initialized{false};
+// This is expensive, defer until first use
 void basis_universal_init() {
+	if(_basis_initialized) {
+		return;
+	}
+	_basis_initialized = true;
+
 #ifdef TOOLS_ENABLED
 	basisu::basisu_encoder_init();
 #endif
@@ -47,6 +54,7 @@ void basis_universal_init() {
 
 #ifdef TOOLS_ENABLED
 Vector<uint8_t> basis_universal_packer(const Ref<Image> &p_image, Image::UsedChannels p_channels) {
+	basis_universal_init();
 	Ref<Image> image = p_image->duplicate();
 	image->convert(Image::FORMAT_RGBA8);
 
@@ -205,6 +213,7 @@ Vector<uint8_t> basis_universal_packer(const Ref<Image> &p_image, Image::UsedCha
 #endif // TOOLS_ENABLED
 
 Ref<Image> basis_universal_unpacker_ptr(const uint8_t *p_data, int p_size) {
+	basis_universal_init();
 	Ref<Image> image;
 	ERR_FAIL_NULL_V_MSG(p_data, image, "Cannot unpack invalid BasisUniversal data.");
 
