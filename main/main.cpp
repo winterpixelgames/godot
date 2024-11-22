@@ -67,8 +67,11 @@
 #include "servers/audio_server.h"
 #include "servers/camera_server.h"
 #include "servers/display_server.h"
+#include "servers/audio/audio_driver_dummy.h"
+#ifndef _MOVIE_WRITER_DISABLED
 #include "servers/movie_writer/movie_writer.h"
 #include "servers/movie_writer/movie_writer_mjpeg.h"
+#endif
 #include "servers/navigation_server_3d.h"
 #include "servers/navigation_server_3d_dummy.h"
 #include "servers/register_server_types.h"
@@ -241,7 +244,9 @@ static int frame_delay = 0;
 static int audio_output_latency = 0;
 static bool disable_render_loop = false;
 static int fixed_fps = -1;
+#ifndef _MOVIE_WRITER_DISABLED
 static MovieWriter *movie_writer = nullptr;
+#endif
 static bool disable_vsync = false;
 static bool print_fps = false;
 #ifdef TOOLS_ENABLED
@@ -3095,6 +3100,7 @@ Error Main::setup2(bool p_show_boot_logo) {
 			rendering_server->set_print_gpu_profile(true);
 		}
 
+#ifndef _MOVIE_WRITER_DISABLED
 		if (Engine::get_singleton()->get_write_movie_path() != String()) {
 			movie_writer = MovieWriter::find_writer_for_file(Engine::get_singleton()->get_write_movie_path());
 			if (movie_writer == nullptr) {
@@ -3102,6 +3108,7 @@ Error Main::setup2(bool p_show_boot_logo) {
 				Engine::get_singleton()->set_write_movie_path(String());
 			}
 		}
+#endif
 
 		OS::get_singleton()->benchmark_end_measure("Servers", "Rendering");
 	}
@@ -4234,10 +4241,11 @@ int Main::start() {
 		Ref<Image> icon = memnew(Image(app_icon_png));
 		DisplayServer::get_singleton()->set_icon(icon);
 	}
-
+#ifndef _MOVIE_WRITER_DISABLED
 	if (movie_writer) {
 		movie_writer->begin(DisplayServer::get_singleton()->window_get_size(), fixed_fps, Engine::get_singleton()->get_write_movie_path());
 	}
+#endif
 
 	if (minimum_time_msec) {
 		uint64_t minimum_time = 1000 * minimum_time_msec;
@@ -4461,9 +4469,11 @@ bool Main::iteration() {
 
 	iterating--;
 
+#ifndef _MOVIE_WRITER_DISABLED
 	if (movie_writer) {
 		movie_writer->add_frame();
 	}
+#endif
 
 #ifdef TOOLS_ENABLED
 	bool quit_after_timeout = false;
@@ -4539,9 +4549,11 @@ void Main::cleanup(bool p_force) {
 		TextServerManager::get_singleton()->get_interface(i)->cleanup();
 	}
 
+#ifndef _MOVIE_WRITER_DISABLED
 	if (movie_writer) {
 		movie_writer->end();
 	}
+#endif
 
 	ResourceLoader::clear_thread_load_tasks();
 

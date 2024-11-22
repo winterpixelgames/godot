@@ -257,6 +257,7 @@ opts.Add(BoolVariable("vsproj", "Generate a Visual Studio solution", False))
 opts.Add("vsproj_name", "Name of the Visual Studio solution", "godot")
 opts.Add("import_env_vars", "A comma-separated list of environment variables to copy from the outer environment.", "")
 opts.Add(BoolVariable("disable_3d", "Disable 3D nodes for a smaller executable", False))
+opts.Add(BoolVariable("disable_movie_writer", "Disable movie writer for a smaller executable", False))
 opts.Add(BoolVariable("disable_advanced_gui", "Disable advanced GUI nodes and behaviors", False))
 opts.Add("build_profile", "Path to a file containing a feature build profile", "")
 opts.Add(BoolVariable("modules_enabled_by_default", "If no, disable all modules except ones explicitly enabled", True))
@@ -1007,6 +1008,9 @@ env["SHLIBSUFFIX"] = suffix + env["SHLIBSUFFIX"]
 
 env["OBJPREFIX"] = env["object_prefix"]
 env["SHOBJPREFIX"] = env["object_prefix"]
+
+if env["disable_movie_writer"]:
+    env.Append(CPPDEFINES=["_MOVIE_WRITER_DISABLED"])
 
 if env["disable_3d"]:
     if env.editor_build:
