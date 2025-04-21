@@ -28,16 +28,15 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef MACOS_EXPORT_PLUGIN_H
-#define MACOS_EXPORT_PLUGIN_H
+#pragma once
 
 #include "core/config/project_settings.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
+#include "core/io/image.h"
 #include "core/io/marshalls.h"
 #include "core/io/resource_saver.h"
 #include "core/os/os.h"
-#include "core/version.h"
 #include "editor/editor_settings.h"
 #include "editor/export/editor_export.h"
 
@@ -75,7 +74,7 @@ class EditorExportPlatformMacOS : public EditorExportPlatform {
 			ssh_args = p_ssh_arg;
 			cmd_args = p_cmd_args;
 			wait = p_wait;
-		};
+		}
 	};
 
 	Ref<ImageTexture> run_icon;
@@ -172,5 +171,3 @@ public:
 
 	EditorExportPlatformMacOS();
 };
-
-#endif // MACOS_EXPORT_PLUGIN_H

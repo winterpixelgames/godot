@@ -28,8 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef ANIMATION_TRACK_EDITOR_H
-#define ANIMATION_TRACK_EDITOR_H
+#pragma once
 
 #include "editor/editor_data.h"
 #include "editor/editor_properties.h"
@@ -232,7 +231,7 @@ class AnimationTimelineEdit : public Range {
 	double hscroll_on_zoom_buffer = -1.0;
 
 	Vector2 zoom_scroll_origin;
-	bool zoom_callback_occured = false;
+	bool zoom_callback_occurred = false;
 
 	virtual void gui_input(const Ref<InputEvent> &p_event) override;
 	void _track_added(int p_track);
@@ -404,7 +403,6 @@ public:
 	void _clear_selection(bool p_update);
 
 	AnimationMarkerEdit();
-	~AnimationMarkerEdit();
 };
 
 class AnimationTrackEdit : public Control {
@@ -600,6 +598,8 @@ class AnimationTrackEditor : public VBoxContainer {
 	AnimationMarkerEdit *marker_edit = nullptr;
 	HSlider *zoom = nullptr;
 	EditorSpinSlider *step = nullptr;
+	Button *fps_compat = nullptr;
+	Label *nearest_fps_label = nullptr;
 	TextureRect *zoom_icon = nullptr;
 	Button *snap_keys = nullptr;
 	Button *snap_timeline = nullptr;
@@ -637,6 +637,8 @@ class AnimationTrackEditor : public VBoxContainer {
 	void _track_grab_focus(int p_track);
 
 	void _update_scroll(double);
+	void _update_nearest_fps_label();
+	void _update_fps_compat_mode(bool p_enabled);
 	void _update_step(double p_new_step);
 	void _update_length(double p_new_len);
 	void _dropped_track(int p_from_track, int p_to_track);
@@ -716,7 +718,7 @@ class AnimationTrackEditor : public VBoxContainer {
 	struct SelectedKey {
 		int track = 0;
 		int key = 0;
-		bool operator<(const SelectedKey &p_key) const { return track == p_key.track ? key < p_key.key : track < p_key.track; };
+		bool operator<(const SelectedKey &p_key) const { return track == p_key.track ? key < p_key.key : track < p_key.track; }
 	};
 
 	struct KeyInfo {
@@ -799,6 +801,9 @@ class AnimationTrackEditor : public VBoxContainer {
 
 	void _anim_paste_keys(float p_ofs, bool p_ofs_valid, int p_track);
 
+	void _toggle_function_names();
+	Button *function_name_toggler = nullptr;
+
 	void _view_group_toggle();
 	Button *view_group = nullptr;
 	Button *selected_filter = nullptr;
@@ -853,6 +858,8 @@ class AnimationTrackEditor : public VBoxContainer {
 	void _pick_track_select_recursive(TreeItem *p_item, const String &p_filter, Vector<Node *> &p_select_candidates);
 
 	double snap_unit;
+	bool fps_compatible = true;
+	int nearest_fps = 0;
 	void _update_snap_unit();
 
 protected:
@@ -910,6 +917,7 @@ public:
 
 	Dictionary get_state() const;
 	void set_state(const Dictionary &p_state);
+	void clear();
 
 	void cleanup();
 
@@ -935,11 +943,13 @@ public:
 	bool can_add_reset_key() const;
 	float get_moving_selection_offset() const;
 	float snap_time(float p_value, bool p_relative = false);
+	float get_snap_unit();
 	bool is_grouping_tracks();
 	PackedStringArray get_selected_section() const;
 	bool is_marker_selected(const StringName &p_marker) const;
 	bool is_marker_moving_selection() const;
 	float get_marker_moving_selection_offset() const;
+	bool is_function_name_pressed();
 
 	/** If `p_from_mouse_event` is `true`, handle Shift key presses for precise snapping. */
 	void goto_prev_step(bool p_from_mouse_event);
@@ -970,12 +980,12 @@ class AnimationTrackKeyEditEditor : public EditorProperty {
 		Variant value;
 	} key_data_cache;
 
+	void _time_edit_spun();
 	void _time_edit_entered();
 	void _time_edit_exited();
 
 public:
 	AnimationTrackKeyEditEditor(Ref<Animation> p_animation, int p_track, real_t p_key_ofs, bool p_use_fps);
-	~AnimationTrackKeyEditEditor();
 };
 
 // AnimationMarkerKeyEditEditorPlugin
@@ -989,12 +999,8 @@ class AnimationMarkerKeyEditEditor : public EditorProperty {
 
 	EditorSpinSlider *spinner = nullptr;
 
-	void _time_edit_entered();
 	void _time_edit_exited();
 
 public:
 	AnimationMarkerKeyEditEditor(Ref<Animation> p_animation, const StringName &p_name, bool p_use_fps);
-	~AnimationMarkerKeyEditEditor();
 };
-
-#endif // ANIMATION_TRACK_EDITOR_H

@@ -28,8 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef INPUT_MAP_H
-#define INPUT_MAP_H
+#pragma once
 
 #include "core/input/input_event.h"
 #include "core/object/class_db.h"
@@ -53,6 +52,10 @@ public:
 		float deadzone;
 		List<Ref<InputEvent>> inputs;
 	};
+
+	static constexpr float DEFAULT_DEADZONE = 0.2f;
+	// Keep bigger deadzone for toggle actions (default `ui_*` actions, axis `pressed`) (GH-103360).
+	static constexpr float DEFAULT_TOGGLE_DEADZONE = 0.5f;
 
 private:
 	static InputMap *singleton;
@@ -79,8 +82,10 @@ public:
 
 	bool has_action(const StringName &p_action) const;
 	List<StringName> get_actions() const;
-	void add_action(const StringName &p_action, float p_deadzone = 0.2);
+	void add_action(const StringName &p_action, float p_deadzone = DEFAULT_DEADZONE);
 	void erase_action(const StringName &p_action);
+
+	String get_action_description(const StringName &p_action) const;
 
 	float action_get_deadzone(const StringName &p_action);
 	void action_set_deadzone(const StringName &p_action, float p_deadzone);
@@ -112,5 +117,3 @@ public:
 	InputMap();
 	~InputMap();
 };
-
-#endif // INPUT_MAP_H

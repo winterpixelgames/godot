@@ -33,7 +33,6 @@
 #include "godot_space_3d.h"
 
 #include "core/math/geometry_3d.h"
-#include "core/templates/rb_map.h"
 #include "servers/rendering_server.h"
 
 // Based on Bullet soft body.
@@ -1121,7 +1120,7 @@ struct AABBQueryResult {
 
 	_FORCE_INLINE_ bool operator()(void *p_data) {
 		return result_callback(soft_body->get_node_index(p_data), userdata);
-	};
+	}
 };
 
 void GodotSoftBody3D::query_aabb(const AABB &p_aabb, GodotSoftBody3D::QueryResultCallback p_result_callback, void *p_userdata) {
@@ -1140,7 +1139,7 @@ struct RayQueryResult {
 
 	_FORCE_INLINE_ bool operator()(void *p_data) {
 		return result_callback(soft_body->get_face_index(p_data), userdata);
-	};
+	}
 };
 
 void GodotSoftBody3D::query_ray(const Vector3 &p_from, const Vector3 &p_to, GodotSoftBody3D::QueryResultCallback p_result_callback, void *p_userdata) {
@@ -1246,7 +1245,7 @@ struct _SoftBodyIntersectSegmentInfo {
 	Vector3 dir;
 	Vector3 hit_position;
 	uint32_t hit_face_index = -1;
-	real_t hit_dist_sq = INFINITY;
+	real_t hit_dist_sq = Math::INF;
 
 	static bool process_hit(uint32_t p_face_index, void *p_userdata) {
 		_SoftBodyIntersectSegmentInfo &query_info = *(static_cast<_SoftBodyIntersectSegmentInfo *>(p_userdata));
@@ -1277,7 +1276,7 @@ bool GodotSoftBodyShape3D::intersect_segment(const Vector3 &p_begin, const Vecto
 
 	soft_body->query_ray(p_begin, p_end, _SoftBodyIntersectSegmentInfo::process_hit, &query_info);
 
-	if (query_info.hit_dist_sq != INFINITY) {
+	if (query_info.hit_dist_sq != Math::INF) {
 		r_result = query_info.hit_position;
 		r_normal = soft_body->get_face_normal(query_info.hit_face_index);
 		return true;

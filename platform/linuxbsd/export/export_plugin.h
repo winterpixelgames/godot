@@ -28,8 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef LINUXBSD_EXPORT_PLUGIN_H
-#define LINUXBSD_EXPORT_PLUGIN_H
+#pragma once
 
 #include "core/io/file_access.h"
 #include "editor/editor_settings.h"
@@ -55,7 +54,7 @@ class EditorExportPlatformLinuxBSD : public EditorExportPlatformPC {
 			ssh_args = p_ssh_arg;
 			cmd_args = p_cmd_args;
 			wait = p_wait;
-		};
+		}
 	};
 
 	Ref<ImageTexture> run_icon;
@@ -92,5 +91,3 @@ public:
 
 	EditorExportPlatformLinuxBSD();
 };
-
-#endif // LINUXBSD_EXPORT_PLUGIN_H

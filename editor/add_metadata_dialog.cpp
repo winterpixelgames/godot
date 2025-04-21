@@ -30,6 +30,8 @@
 
 #include "add_metadata_dialog.h"
 
+#include "editor/themes/editor_scale.h"
+
 AddMetadataDialog::AddMetadataDialog() {
 	VBoxContainer *vbc = memnew(VBoxContainer);
 	add_child(vbc);
@@ -39,11 +41,13 @@ AddMetadataDialog::AddMetadataDialog() {
 	hbc->add_child(memnew(Label(TTR("Name:"))));
 
 	add_meta_name = memnew(LineEdit);
+	add_meta_name->set_accessibility_name(TTRC("Name:"));
 	add_meta_name->set_custom_minimum_size(Size2(200 * EDSCALE, 1));
 	hbc->add_child(add_meta_name);
 	hbc->add_child(memnew(Label(TTR("Type:"))));
 
 	add_meta_type = memnew(OptionButton);
+	add_meta_type->set_accessibility_name(TTRC("Type:"));
 
 	hbc->add_child(add_meta_type);
 
@@ -64,7 +68,6 @@ AddMetadataDialog::AddMetadataDialog() {
 }
 
 void AddMetadataDialog::_complete_init(const StringName &p_title) {
-	add_meta_name->grab_focus();
 	add_meta_name->set_text("");
 	validation_panel->update();
 
@@ -90,6 +93,7 @@ void AddMetadataDialog::open(const StringName p_title, List<StringName> &p_exist
 	this->_existing_metas = p_existing_metas;
 	_complete_init(p_title);
 	popup_centered();
+	add_meta_name->grab_focus();
 }
 
 StringName AddMetadataDialog::get_meta_name() {

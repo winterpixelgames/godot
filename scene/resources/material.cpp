@@ -99,9 +99,13 @@ void Material::_mark_initialized(const Callable &p_add_to_dirty_list, const Call
 	if (ResourceLoader::is_within_load()) {
 		DEV_ASSERT(init_state != INIT_STATE_READY);
 		if (init_state == INIT_STATE_UNINITIALIZED) { // Prevent queueing twice.
-			init_state = INIT_STATE_INITIALIZING;
-			callable_mp(this, &Material::_mark_ready).call_deferred();
-			p_update_shader.call_deferred();
+			if (p_update_shader.is_valid()) {
+				init_state = INIT_STATE_INITIALIZING;
+				callable_mp(this, &Material::_mark_ready).call_deferred();
+				p_update_shader.call_deferred();
+			} else {
+				init_state = INIT_STATE_READY;
+			}
 		}
 	} else {
 		// Straightforward conditions.
@@ -235,7 +239,7 @@ bool ShaderMaterial::_get(const StringName &p_name, Variant &r_ret) const {
 }
 
 void ShaderMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
-	if (!shader.is_null()) {
+	if (shader.is_valid()) {
 		List<PropertyInfo> list;
 		shader->get_shader_uniform_list(&list, true);
 
@@ -253,10 +257,10 @@ void ShaderMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 		bool is_none_group_undefined = true;
 		bool is_none_group = true;
 
-		for (List<PropertyInfo>::Element *E = list.front(); E; E = E->next()) {
-			if (E->get().usage == PROPERTY_USAGE_GROUP) {
-				if (!E->get().name.is_empty()) {
-					Vector<String> vgroup = E->get().name.split("::");
+		for (const PropertyInfo &pi : list) {
+			if (pi.usage == PROPERTY_USAGE_GROUP) {
+				if (!pi.name.is_empty()) {
+					Vector<String> vgroup = pi.name.split("::");
 					last_group = vgroup[0];
 					if (vgroup.size() > 1) {
 						last_subgroup = vgroup[1];
@@ -318,23 +322,23 @@ void ShaderMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 				vgroups.push_back(Pair<String, LocalVector<String>>("<None>", { "<None>" }));
 			}
 
-			const bool is_uniform_cached = param_cache.has(E->get().name);
+			const bool is_uniform_cached = param_cache.has(pi.name);
 			bool is_uniform_type_compatible = true;
 
 			if (is_uniform_cached) {
 				// Check if the uniform Variant type changed, for example vec3 to vec4.
-				const Variant &cached = param_cache.get(E->get().name);
+				const Variant &cached = param_cache.get(pi.name);
 
 				if (cached.is_array()) {
 					// Allow some array conversions for backwards compatibility.
-					is_uniform_type_compatible = Variant::can_convert(E->get().type, cached.get_type());
+					is_uniform_type_compatible = Variant::can_convert(pi.type, cached.get_type());
 				} else {
-					is_uniform_type_compatible = E->get().type == cached.get_type();
+					is_uniform_type_compatible = pi.type == cached.get_type();
 				}
 
 #ifndef DISABLE_DEPRECATED
 				// PackedFloat32Array -> PackedVector4Array conversion.
-				if (!is_uniform_type_compatible && E->get().type == Variant::PACKED_VECTOR4_ARRAY && cached.get_type() == Variant::PACKED_FLOAT32_ARRAY) {
+				if (!is_uniform_type_compatible && pi.type == Variant::PACKED_VECTOR4_ARRAY && cached.get_type() == Variant::PACKED_FLOAT32_ARRAY) {
 					PackedVector4Array varray;
 					PackedFloat32Array array = (PackedFloat32Array)cached;
 
@@ -342,28 +346,28 @@ void ShaderMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 						varray.push_back(Vector4(array[i], array[i + 1], array[i + 2], array[i + 3]));
 					}
 
-					param_cache.insert(E->get().name, varray);
+					param_cache.insert(pi.name, varray);
 					is_uniform_type_compatible = true;
 				}
 #endif
 
-				if (is_uniform_type_compatible && E->get().type == Variant::OBJECT && cached.get_type() == Variant::OBJECT) {
+				if (is_uniform_type_compatible && pi.type == Variant::OBJECT && cached.get_type() == Variant::OBJECT) {
 					// Check if the Object class (hint string) changed, for example Texture2D sampler to Texture3D.
 					// Allow inheritance, Texture2D type sampler should also accept CompressedTexture2D.
 					Object *cached_obj = cached;
-					if (!cached_obj->is_class(E->get().hint_string)) {
+					if (!cached_obj->is_class(pi.hint_string)) {
 						is_uniform_type_compatible = false;
 					}
 				}
 			}
 
-			PropertyInfo info = E->get();
+			PropertyInfo info = pi;
 			info.name = "shader_parameter/" + info.name;
 			if (!is_uniform_cached || !is_uniform_type_compatible) {
 				// Property has never been edited or its type changed, retrieve with default value.
-				Variant default_value = RenderingServer::get_singleton()->shader_get_parameter_default(shader->get_rid(), E->get().name);
-				param_cache.insert(E->get().name, default_value);
-				remap_cache.insert(info.name, E->get().name);
+				Variant default_value = RenderingServer::get_singleton()->shader_get_parameter_default(shader->get_rid(), pi.name);
+				param_cache.insert(pi.name, default_value);
+				remap_cache.insert(info.name, pi.name);
 			}
 			groups[last_group][last_subgroup].push_back(info);
 		}
@@ -372,8 +376,8 @@ void ShaderMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 			String group = group_pair.first;
 			for (const String &subgroup : group_pair.second) {
 				List<PropertyInfo> &prop_infos = groups[group][subgroup];
-				for (List<PropertyInfo>::Element *item = prop_infos.front(); item; item = item->next()) {
-					p_list->push_back(item->get());
+				for (const PropertyInfo &item : prop_infos) {
+					p_list->push_back(item);
 				}
 			}
 		}
@@ -382,14 +386,11 @@ void ShaderMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 
 bool ShaderMaterial::_property_can_revert(const StringName &p_name) const {
 	if (shader.is_valid()) {
-		const StringName *pr = remap_cache.getptr(p_name);
-		if (pr) {
-			Variant default_value = RenderingServer::get_singleton()->shader_get_parameter_default(shader->get_rid(), *pr);
-			Variant current_value = get_shader_parameter(*pr);
-			return default_value.get_type() != Variant::NIL && default_value != current_value;
-		} else if (p_name == "render_priority" || p_name == "next_pass") {
+		if (remap_cache.has(p_name)) {
 			return true;
 		}
+		const String sname = p_name;
+		return sname == "render_priority" || sname == "next_pass";
 	}
 	return false;
 }
@@ -581,6 +582,8 @@ ShaderMaterial::~ShaderMaterial() {
 HashMap<BaseMaterial3D::MaterialKey, BaseMaterial3D::ShaderData, BaseMaterial3D::MaterialKey> BaseMaterial3D::shader_map;
 Mutex BaseMaterial3D::shader_map_mutex;
 BaseMaterial3D::ShaderNames *BaseMaterial3D::shader_names = nullptr;
+Mutex BaseMaterial3D::material_mutex;
+SelfList<BaseMaterial3D>::List BaseMaterial3D::dirty_materials;
 
 void BaseMaterial3D::init_shaders() {
 	shader_names = memnew(ShaderNames);
@@ -669,48 +672,49 @@ HashMap<uint64_t, Ref<StandardMaterial3D>> BaseMaterial3D::materials_for_2d;
 void BaseMaterial3D::finish_shaders() {
 	materials_for_2d.clear();
 
+	dirty_materials.clear();
+
 	memdelete(shader_names);
 	shader_names = nullptr;
 }
 
-void BaseMaterial3D::_mark_dirty() {
-	dirty = true;
-}
-
 void BaseMaterial3D::_update_shader() {
-	if (!dirty) {
-		return;
-	}
-
-	dirty = false;
-
 	MaterialKey mk = _compute_key();
 	if (mk == current_key) {
 		return; //no update required in the end
 	}
 
-	MutexLock lock(shader_map_mutex);
-	if (shader_map.has(current_key)) {
-		shader_map[current_key].users--;
-		if (shader_map[current_key].users == 0) {
-			// Deallocate shader which is no longer in use.
-			RS::get_singleton()->free(shader_map[current_key].shader);
-			shader_map.erase(current_key);
+	{
+		MutexLock lock(shader_map_mutex);
+		ShaderData *v = shader_map.getptr(current_key);
+		if (v) {
+			v->users--;
+			if (v->users == 0) {
+				// Deallocate shader which is no longer in use.
+				shader_rid = RID();
+				RS::get_singleton()->free(v->shader);
+				shader_map.erase(current_key);
+			}
+		}
+
+		current_key = mk;
+
+		v = shader_map.getptr(mk);
+		if (v) {
+			shader_rid = v->shader;
+			v->users++;
+
+			if (_get_material().is_valid()) {
+				RS::get_singleton()->material_set_shader(_get_material(), shader_rid);
+			}
+
+			return;
 		}
 	}
 
-	current_key = mk;
-
-	if (shader_map.has(mk)) {
-		shader_rid = shader_map[mk].shader;
-		shader_map[mk].users++;
-
-		if (_get_material().is_valid()) {
-			RS::get_singleton()->material_set_shader(_get_material(), shader_rid);
-		}
-
-		return;
-	}
+	// From this point, it is possible that multiple threads requesting the same key will
+	// race to create the shader. The winner, which is the one found in shader_map, will be
+	// used. The losers will free their shader.
 
 	String texfilter_str;
 	// Force linear filtering for the heightmap texture, as the heightmap effect
@@ -755,7 +759,7 @@ void BaseMaterial3D::_update_shader() {
 
 	// Add a comment to describe the shader origin (useful when converting to ShaderMaterial).
 	String code = vformat(
-			"// NOTE: Shader automatically converted from " VERSION_NAME " " VERSION_FULL_CONFIG "'s %s.\n\n",
+			"// NOTE: Shader automatically converted from " GODOT_VERSION_NAME " " GODOT_VERSION_FULL_CONFIG "'s %s.\n\n",
 			orm ? "ORMMaterial3D" : "StandardMaterial3D");
 
 	// Define shader type and render mode based on property values.
@@ -937,12 +941,10 @@ uniform float msdf_outline_size : hint_range(0.0, 250.0, 1.0);
 	// If alpha antialiasing isn't off, add in the edge variable.
 	if (alpha_antialiasing_mode != ALPHA_ANTIALIASING_OFF &&
 			(transparency == TRANSPARENCY_ALPHA_SCISSOR || transparency == TRANSPARENCY_ALPHA_HASH)) {
-		code += R"(
-uniform float alpha_antialiasing_edge : hint_range(0.0, 1.0, 0.01);
-uniform ivec2 albedo_texture_size;
-)";
+		code += "uniform float alpha_antialiasing_edge : hint_range(0.0, 1.0, 0.01);\n";
 	}
 
+	code += "uniform ivec2 albedo_texture_size;\n";
 	code += "uniform float point_size : hint_range(0.1, 128.0, 0.1);\n";
 
 	if (!orm) {
@@ -1520,7 +1522,7 @@ void fragment() {)";
 				vec3(1.0 + 0.055) * pow(albedo_tex.rgb, vec3(1.0 / 2.4)) - vec3(0.055),
 				vec3(12.92) * albedo_tex.rgb,
 				lessThan(albedo_tex.rgb, vec3(0.0031308)));
-		vec2 msdf_size = vec2(msdf_pixel_range) / vec2(textureSize(texture_albedo, 0));
+		vec2 msdf_size = vec2(msdf_pixel_range) / vec2(albedo_texture_size);
 )";
 		if (flags[FLAG_USE_POINT_SIZE]) {
 			code += "		vec2 dest_size = vec2(1.0) / fwidth(POINT_COORD);\n";
@@ -1936,11 +1938,28 @@ void fragment() {)";
 
 	code += "}\n";
 
-	ShaderData shader_data;
-	shader_data.shader = RS::get_singleton()->shader_create_from_code(code);
-	shader_data.users = 1;
-	shader_map[mk] = shader_data;
-	shader_rid = shader_data.shader;
+	// We must create the shader outside the shader_map_mutex to avoid potential deadlocks with
+	// other tasks in the WorkerThreadPool simultaneously creating materials, which
+	// may also hold the shared shader_map_mutex lock.
+	RID new_shader = RS::get_singleton()->shader_create_from_code(code);
+
+	MutexLock lock(shader_map_mutex);
+
+	ShaderData *v = shader_map.getptr(mk);
+	if (unlikely(v)) {
+		// We raced and managed to create the same key concurrently, so we'll free the shader we just created,
+		// given we know it isn't used, and use the winner.
+		RS::get_singleton()->free(new_shader);
+	} else {
+		ShaderData shader_data;
+		shader_data.shader = new_shader;
+		// ShaderData will be inserted with a users count of 0, but we
+		// increment unconditionally outside this if block, whilst still under lock.
+		v = &shader_map.insert(mk, shader_data)->value;
+	}
+
+	shader_rid = v->shader;
+	v->users++;
 
 	if (_get_material().is_valid()) {
 		RS::get_singleton()->material_set_shader(_get_material(), shader_rid);
@@ -1962,6 +1981,34 @@ void BaseMaterial3D::_check_material_rid() {
 		}
 
 		pending_params.clear();
+	}
+}
+
+void BaseMaterial3D::flush_changes() {
+	SelfList<BaseMaterial3D>::List copy;
+	{
+		MutexLock lock(material_mutex);
+		while (SelfList<BaseMaterial3D> *E = dirty_materials.first()) {
+			dirty_materials.remove(E);
+			copy.add(E);
+		}
+	}
+
+	while (SelfList<BaseMaterial3D> *E = copy.first()) {
+		E->self()->_update_shader();
+		copy.remove(E);
+	}
+}
+
+void BaseMaterial3D::_queue_shader_change() {
+	if (!_is_initialized()) {
+		return;
+	}
+
+	MutexLock lock(material_mutex);
+
+	if (!element.in_list()) {
+		dirty_materials.add(&element);
 	}
 }
 
@@ -2174,7 +2221,7 @@ void BaseMaterial3D::set_detail_uv(DetailUV p_detail_uv) {
 	}
 
 	detail_uv = p_detail_uv;
-	_mark_dirty();
+	_queue_shader_change();
 }
 
 BaseMaterial3D::DetailUV BaseMaterial3D::get_detail_uv() const {
@@ -2187,7 +2234,7 @@ void BaseMaterial3D::set_blend_mode(BlendMode p_mode) {
 	}
 
 	blend_mode = p_mode;
-	_mark_dirty();
+	_queue_shader_change();
 }
 
 BaseMaterial3D::BlendMode BaseMaterial3D::get_blend_mode() const {
@@ -2196,7 +2243,7 @@ BaseMaterial3D::BlendMode BaseMaterial3D::get_blend_mode() const {
 
 void BaseMaterial3D::set_detail_blend_mode(BlendMode p_mode) {
 	detail_blend_mode = p_mode;
-	_mark_dirty();
+	_queue_shader_change();
 }
 
 BaseMaterial3D::BlendMode BaseMaterial3D::get_detail_blend_mode() const {
@@ -2209,7 +2256,7 @@ void BaseMaterial3D::set_transparency(Transparency p_transparency) {
 	}
 
 	transparency = p_transparency;
-	_mark_dirty();
+	_queue_shader_change();
 	notify_property_list_changed();
 }
 
@@ -2223,7 +2270,7 @@ void BaseMaterial3D::set_alpha_antialiasing(AlphaAntiAliasing p_alpha_aa) {
 	}
 
 	alpha_antialiasing_mode = p_alpha_aa;
-	_mark_dirty();
+	_queue_shader_change();
 	notify_property_list_changed();
 }
 
@@ -2237,7 +2284,7 @@ void BaseMaterial3D::set_shading_mode(ShadingMode p_shading_mode) {
 	}
 
 	shading_mode = p_shading_mode;
-	_mark_dirty();
+	_queue_shader_change();
 	notify_property_list_changed();
 }
 
@@ -2251,7 +2298,7 @@ void BaseMaterial3D::set_depth_draw_mode(DepthDrawMode p_mode) {
 	}
 
 	depth_draw_mode = p_mode;
-	_mark_dirty();
+	_queue_shader_change();
 }
 
 BaseMaterial3D::DepthDrawMode BaseMaterial3D::get_depth_draw_mode() const {
@@ -2264,7 +2311,7 @@ void BaseMaterial3D::set_cull_mode(CullMode p_mode) {
 	}
 
 	cull_mode = p_mode;
-	_mark_dirty();
+	_queue_shader_change();
 }
 
 BaseMaterial3D::CullMode BaseMaterial3D::get_cull_mode() const {
@@ -2277,7 +2324,7 @@ void BaseMaterial3D::set_diffuse_mode(DiffuseMode p_mode) {
 	}
 
 	diffuse_mode = p_mode;
-	_mark_dirty();
+	_queue_shader_change();
 }
 
 BaseMaterial3D::DiffuseMode BaseMaterial3D::get_diffuse_mode() const {
@@ -2290,7 +2337,7 @@ void BaseMaterial3D::set_specular_mode(SpecularMode p_mode) {
 	}
 
 	specular_mode = p_mode;
-	_mark_dirty();
+	_queue_shader_change();
 }
 
 BaseMaterial3D::SpecularMode BaseMaterial3D::get_specular_mode() const {
@@ -2320,7 +2367,7 @@ void BaseMaterial3D::set_flag(Flags p_flag, bool p_enabled) {
 		update_configuration_warning();
 	}
 
-	_mark_dirty();
+	_queue_shader_change();
 }
 
 bool BaseMaterial3D::get_flag(Flags p_flag) const {
@@ -2336,7 +2383,7 @@ void BaseMaterial3D::set_feature(Feature p_feature, bool p_enabled) {
 
 	features[p_feature] = p_enabled;
 	notify_property_list_changed();
-	_mark_dirty();
+	_queue_shader_change();
 }
 
 bool BaseMaterial3D::get_feature(Feature p_feature) const {
@@ -2356,7 +2403,7 @@ void BaseMaterial3D::set_texture(TextureParam p_param, const Ref<Texture2D> &p_t
 	}
 
 	notify_property_list_changed();
-	_mark_dirty();
+	_queue_shader_change();
 }
 
 Ref<Texture2D> BaseMaterial3D::get_texture(TextureParam p_param) const {
@@ -2376,7 +2423,7 @@ Ref<Texture2D> BaseMaterial3D::get_texture_by_name(const StringName &p_name) con
 
 void BaseMaterial3D::set_texture_filter(TextureFilter p_filter) {
 	texture_filter = p_filter;
-	_mark_dirty();
+	_queue_shader_change();
 }
 
 BaseMaterial3D::TextureFilter BaseMaterial3D::get_texture_filter() const {
@@ -2384,7 +2431,7 @@ BaseMaterial3D::TextureFilter BaseMaterial3D::get_texture_filter() const {
 }
 
 void BaseMaterial3D::_validate_feature(const String &text, Feature feature, PropertyInfo &property) const {
-	if (property.name.begins_with(text) && property.name != text + "_enabled" && !features[feature]) {
+	if (!features[feature] && property.name.begins_with(text) && !property.name.ends_with("_enabled")) {
 		property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
 }
@@ -2613,7 +2660,7 @@ float BaseMaterial3D::get_uv2_triplanar_blend_sharpness() const {
 
 void BaseMaterial3D::set_billboard_mode(BillboardMode p_mode) {
 	billboard_mode = p_mode;
-	_mark_dirty();
+	_queue_shader_change();
 	notify_property_list_changed();
 }
 
@@ -2650,7 +2697,7 @@ bool BaseMaterial3D::get_particles_anim_loop() const {
 
 void BaseMaterial3D::set_heightmap_deep_parallax(bool p_enable) {
 	deep_parallax = p_enable;
-	_mark_dirty();
+	_queue_shader_change();
 	notify_property_list_changed();
 }
 
@@ -2696,7 +2743,7 @@ bool BaseMaterial3D::get_heightmap_deep_parallax_flip_binormal() const {
 
 void BaseMaterial3D::set_grow_enabled(bool p_enable) {
 	grow_enabled = p_enable;
-	_mark_dirty();
+	_queue_shader_change();
 	notify_property_list_changed();
 }
 
@@ -2740,13 +2787,13 @@ float BaseMaterial3D::get_grow() const {
 	return grow;
 }
 
-static Plane _get_texture_mask(BaseMaterial3D::TextureChannel p_channel) {
-	static const Plane masks[5] = {
-		Plane(1, 0, 0, 0),
-		Plane(0, 1, 0, 0),
-		Plane(0, 0, 1, 0),
-		Plane(0, 0, 0, 1),
-		Plane(0.3333333, 0.3333333, 0.3333333, 0),
+static Vector4 _get_texture_mask(BaseMaterial3D::TextureChannel p_channel) {
+	static const Vector4 masks[5] = {
+		Vector4(1, 0, 0, 0),
+		Vector4(0, 1, 0, 0),
+		Vector4(0, 0, 1, 0),
+		Vector4(0, 0, 0, 1),
+		Vector4(0.3333333, 0.3333333, 0.3333333, 0),
 	};
 
 	return masks[p_channel];
@@ -2765,7 +2812,7 @@ BaseMaterial3D::TextureChannel BaseMaterial3D::get_metallic_texture_channel() co
 void BaseMaterial3D::set_roughness_texture_channel(TextureChannel p_channel) {
 	ERR_FAIL_INDEX(p_channel, 5);
 	roughness_texture_channel = p_channel;
-	_mark_dirty();
+	_queue_shader_change();
 }
 
 BaseMaterial3D::TextureChannel BaseMaterial3D::get_roughness_texture_channel() const {
@@ -2847,7 +2894,7 @@ void BaseMaterial3D::set_on_top_of_alpha() {
 
 void BaseMaterial3D::set_proximity_fade_enabled(bool p_enable) {
 	proximity_fade_enabled = p_enable;
-	_mark_dirty();
+	_queue_shader_change();
 	notify_property_list_changed();
 }
 
@@ -2884,7 +2931,7 @@ float BaseMaterial3D::get_msdf_outline_size() const {
 
 void BaseMaterial3D::set_distance_fade(DistanceFadeMode p_mode) {
 	distance_fade = p_mode;
-	_mark_dirty();
+	_queue_shader_change();
 	notify_property_list_changed();
 }
 
@@ -2915,7 +2962,7 @@ void BaseMaterial3D::set_emission_operator(EmissionOperator p_op) {
 		return;
 	}
 	emission_op = p_op;
-	_mark_dirty();
+	_queue_shader_change();
 }
 
 BaseMaterial3D::EmissionOperator BaseMaterial3D::get_emission_operator() const {
@@ -3187,7 +3234,7 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "roughness_texture_channel", PROPERTY_HINT_ENUM, "Red,Green,Blue,Alpha,Gray"), "set_roughness_texture_channel", "get_roughness_texture_channel");
 
 	ADD_GROUP("Emission", "emission_");
-	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "emission_enabled"), "set_feature", "get_feature", FEATURE_EMISSION);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "emission_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_EMISSION);
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "emission", PROPERTY_HINT_COLOR_NO_ALPHA), "set_emission", "get_emission");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "emission_energy_multiplier", PROPERTY_HINT_RANGE, "0,16,0.01,or_greater"), "set_emission_energy_multiplier", "get_emission_energy_multiplier");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "emission_intensity", PROPERTY_HINT_RANGE, "0,100000.0,0.01,or_greater,suffix:nt"), "set_emission_intensity", "get_emission_intensity");
@@ -3197,36 +3244,36 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "emission_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_EMISSION);
 
 	ADD_GROUP("Normal Map", "normal_");
-	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "normal_enabled"), "set_feature", "get_feature", FEATURE_NORMAL_MAPPING);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "normal_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_NORMAL_MAPPING);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "normal_scale", PROPERTY_HINT_RANGE, "-16,16,0.01"), "set_normal_scale", "get_normal_scale");
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "normal_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_NORMAL);
 
 	ADD_GROUP("Rim", "rim_");
-	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "rim_enabled"), "set_feature", "get_feature", FEATURE_RIM);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "rim_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_RIM);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "rim", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_rim", "get_rim");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "rim_tint", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_rim_tint", "get_rim_tint");
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "rim_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_RIM);
 
 	ADD_GROUP("Clearcoat", "clearcoat_");
-	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "clearcoat_enabled"), "set_feature", "get_feature", FEATURE_CLEARCOAT);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "clearcoat_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_CLEARCOAT);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "clearcoat", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_clearcoat", "get_clearcoat");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "clearcoat_roughness", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_clearcoat_roughness", "get_clearcoat_roughness");
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "clearcoat_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_CLEARCOAT);
 
 	ADD_GROUP("Anisotropy", "anisotropy_");
-	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "anisotropy_enabled"), "set_feature", "get_feature", FEATURE_ANISOTROPY);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "anisotropy_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_ANISOTROPY);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "anisotropy", PROPERTY_HINT_RANGE, "-1,1,0.01"), "set_anisotropy", "get_anisotropy");
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "anisotropy_flowmap", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_FLOWMAP);
 
 	ADD_GROUP("Ambient Occlusion", "ao_");
-	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "ao_enabled"), "set_feature", "get_feature", FEATURE_AMBIENT_OCCLUSION);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "ao_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_AMBIENT_OCCLUSION);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ao_light_affect", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_ao_light_affect", "get_ao_light_affect");
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "ao_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_AMBIENT_OCCLUSION);
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "ao_on_uv2"), "set_flag", "get_flag", FLAG_AO_ON_UV2);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "ao_texture_channel", PROPERTY_HINT_ENUM, "Red,Green,Blue,Alpha,Gray"), "set_ao_texture_channel", "get_ao_texture_channel");
 
 	ADD_GROUP("Height", "heightmap_");
-	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "heightmap_enabled"), "set_feature", "get_feature", FEATURE_HEIGHT_MAPPING);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "heightmap_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_HEIGHT_MAPPING);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "heightmap_scale", PROPERTY_HINT_RANGE, "-16,16,0.001"), "set_heightmap_scale", "get_heightmap_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "heightmap_deep_parallax"), "set_heightmap_deep_parallax", "is_heightmap_deep_parallax_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "heightmap_min_layers", PROPERTY_HINT_RANGE, "1,64,1"), "set_heightmap_deep_parallax_min_layers", "get_heightmap_deep_parallax_min_layers");
@@ -3236,32 +3283,32 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "heightmap_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_HEIGHTMAP);
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "heightmap_flip_texture"), "set_flag", "get_flag", FLAG_INVERT_HEIGHTMAP);
 
-	ADD_GROUP("Subsurface Scattering", "subsurf_scatter_");
-	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "subsurf_scatter_enabled"), "set_feature", "get_feature", FEATURE_SUBSURFACE_SCATTERING);
+	ADD_GROUP("Subsurf Scatter", "subsurf_scatter_");
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "subsurf_scatter_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_SUBSURFACE_SCATTERING);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "subsurf_scatter_strength", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_subsurface_scattering_strength", "get_subsurface_scattering_strength");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "subsurf_scatter_skin_mode"), "set_flag", "get_flag", FLAG_SUBSURFACE_MODE_SKIN);
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "subsurf_scatter_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_SUBSURFACE_SCATTERING);
 
 	ADD_SUBGROUP("Transmittance", "subsurf_scatter_transmittance_");
-	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "subsurf_scatter_transmittance_enabled"), "set_feature", "get_feature", FEATURE_SUBSURFACE_TRANSMITTANCE);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "subsurf_scatter_transmittance_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_SUBSURFACE_TRANSMITTANCE);
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "subsurf_scatter_transmittance_color"), "set_transmittance_color", "get_transmittance_color");
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "subsurf_scatter_transmittance_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_SUBSURFACE_TRANSMITTANCE);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "subsurf_scatter_transmittance_depth", PROPERTY_HINT_RANGE, "0.001,8,0.001,or_greater"), "set_transmittance_depth", "get_transmittance_depth");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "subsurf_scatter_transmittance_boost", PROPERTY_HINT_RANGE, "0.00,1.0,0.01"), "set_transmittance_boost", "get_transmittance_boost");
 
 	ADD_GROUP("Back Lighting", "backlight_");
-	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "backlight_enabled"), "set_feature", "get_feature", FEATURE_BACKLIGHT);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "backlight_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_BACKLIGHT);
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "backlight", PROPERTY_HINT_COLOR_NO_ALPHA), "set_backlight", "get_backlight");
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "backlight_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_BACKLIGHT);
 
 	ADD_GROUP("Refraction", "refraction_");
-	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "refraction_enabled"), "set_feature", "get_feature", FEATURE_REFRACTION);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "refraction_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_REFRACTION);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "refraction_scale", PROPERTY_HINT_RANGE, "-1,1,0.01"), "set_refraction", "get_refraction");
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "refraction_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_REFRACTION);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "refraction_texture_channel", PROPERTY_HINT_ENUM, "Red,Green,Blue,Alpha,Gray"), "set_refraction_texture_channel", "get_refraction_texture_channel");
 
 	ADD_GROUP("Detail", "detail_");
-	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "detail_enabled"), "set_feature", "get_feature", FEATURE_DETAIL);
+	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "detail_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_feature", "get_feature", FEATURE_DETAIL);
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "detail_mask", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_DETAIL_MASK);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "detail_blend_mode", PROPERTY_HINT_ENUM, "Mix,Add,Subtract,Multiply"), "set_detail_blend_mode", "get_detail_blend_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "detail_uv_layer", PROPERTY_HINT_ENUM, "UV1,UV2"), "set_detail_uv", "get_detail_uv");
@@ -3302,17 +3349,21 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_GROUP("Grow", "grow_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "grow"), "set_grow_enabled", "is_grow_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "grow_amount", PROPERTY_HINT_RANGE, "-16,16,0.001,suffix:m"), "set_grow", "get_grow");
+
 	ADD_GROUP("Transform", "");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "fixed_size"), "set_flag", "get_flag", FLAG_FIXED_SIZE);
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "use_point_size"), "set_flag", "get_flag", FLAG_USE_POINT_SIZE);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "point_size", PROPERTY_HINT_RANGE, "0.1,128,0.1,suffix:px"), "set_point_size", "get_point_size");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "use_particle_trails"), "set_flag", "get_flag", FLAG_PARTICLE_TRAILS_MODE);
+
 	ADD_GROUP("Proximity Fade", "proximity_fade_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "proximity_fade_enabled"), "set_proximity_fade_enabled", "is_proximity_fade_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "proximity_fade_distance", PROPERTY_HINT_RANGE, "0.01,4096,0.01,suffix:m"), "set_proximity_fade_distance", "get_proximity_fade_distance");
+
 	ADD_GROUP("MSDF", "msdf_");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "msdf_pixel_range", PROPERTY_HINT_RANGE, "1,100,1"), "set_msdf_pixel_range", "get_msdf_pixel_range");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "msdf_outline_size", PROPERTY_HINT_RANGE, "0,250,1"), "set_msdf_outline_size", "get_msdf_outline_size");
+
 	ADD_GROUP("Distance Fade", "distance_fade_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "distance_fade_mode", PROPERTY_HINT_ENUM, "Disabled,PixelAlpha,PixelDither,ObjectDither"), "set_distance_fade", "get_distance_fade");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "distance_fade_min_distance", PROPERTY_HINT_RANGE, "0,4096,0.01,suffix:m"), "set_distance_fade_min_distance", "get_distance_fade_min_distance");
@@ -3446,7 +3497,8 @@ void BaseMaterial3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(DISTANCE_FADE_OBJECT_DITHER);
 }
 
-BaseMaterial3D::BaseMaterial3D(bool p_orm) {
+BaseMaterial3D::BaseMaterial3D(bool p_orm) :
+		element(this) {
 	orm = p_orm;
 	// Initialize to the same values as the shader
 	set_albedo(Color(1.0, 1.0, 1.0, 1.0));
@@ -3513,7 +3565,7 @@ BaseMaterial3D::BaseMaterial3D(bool p_orm) {
 
 	current_key.invalid_key = 1;
 
-	_mark_dirty();
+	_mark_initialized(callable_mp(this, &BaseMaterial3D::_queue_shader_change), Callable());
 }
 
 BaseMaterial3D::~BaseMaterial3D() {

@@ -28,8 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef PROJECT_EXPORT_H
-#define PROJECT_EXPORT_H
+#pragma once
 
 #include "editor/export/editor_export_preset.h"
 #include "scene/gui/dialogs.h"
@@ -172,6 +171,7 @@ class ProjectExportDialog : public ConfirmationDialog {
 	CheckButton *enc_directory = nullptr;
 	LineEdit *enc_in_filters = nullptr;
 	LineEdit *enc_ex_filters = nullptr;
+	LineEdit *seed_input = nullptr;
 
 	OptionButton *script_mode = nullptr;
 
@@ -192,9 +192,11 @@ class ProjectExportDialog : public ConfirmationDialog {
 
 	bool updating_script_key = false;
 	bool updating_enc_filters = false;
+	bool updating_seed = false;
 	void _enc_pck_changed(bool p_pressed);
 	void _enc_directory_changed(bool p_pressed);
 	void _enc_filters_changed(const String &p_text);
+	void _seed_input_changed(const String &p_text);
 	void _script_encryption_key_changed(const String &p_key);
 	bool _validate_script_encryption_key(const String &p_key);
 
@@ -216,10 +218,7 @@ public:
 
 	Ref<EditorExportPreset> get_current_preset() const;
 
-	bool is_exporting() const { return exporting; };
+	bool is_exporting() const { return exporting; }
 
 	ProjectExportDialog();
-	~ProjectExportDialog();
 };
-
-#endif // PROJECT_EXPORT_H

@@ -2,9 +2,9 @@
 /*  cowdata.h                                                             */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             PRODOT ENGINE                              */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
 /**************************************************************************/
-/* Copyright (c) 2024-present Prodot Engine contributors (see PRODOT_AUTHORS.md).*/
 /* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
 /*                                                                        */
@@ -28,42 +28,48 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef COWDATA_H
-#define COWDATA_H
+#pragma once
 
 #include "core/error/error_macros.h"
 #include "core/os/memory.h"
 #include "core/templates/safe_refcount.h"
+#include "core/templates/span.h"
 
 #include <string.h>
+#include <initializer_list>
 #include <type_traits>
-
-template <typename T>
-class Vector;
-class String;
-class Char16String;
-class CharString;
-template <typename T, typename V>
-class VMap;
 
 static_assert(std::is_trivially_destructible_v<std::atomic<uint64_t>>);
 
-// Silence a false positive warning (see GH-52119).
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wplacement-new"
-#endif
+GODOT_GCC_WARNING_PUSH_AND_IGNORE("-Wplacement-new") // Silence a false positive warning (see GH-52119).
 
-
-
-class CowBackingData {
-
+template <typename T>
+class CowData {
 public:
 	typedef int64_t Size;
 	typedef uint64_t USize;
 	static constexpr USize MAX_INT = INT64_MAX;
+
+private:
 	// Function to find the next power of 2 to an integer.
-	static USize next_po2(USize x);
+	static _FORCE_INLINE_ USize next_po2(USize x) {
+		if (x == 0) {
+			return 0;
+		}
+
+		--x;
+		x |= x >> 1;
+		x |= x >> 2;
+		x |= x >> 4;
+		x |= x >> 8;
+		x |= x >> 16;
+		if (sizeof(USize) == 8) {
+			x |= x >> 32;
+		}
+
+		return ++x;
+	}
+
 	// Alignment:  ↓ max_align_t           ↓ USize          ↓ max_align_t
 	//             ┌────────────────────┬──┬─────────────┬──┬───────────...
 	//             │ SafeNumeric<USize> │░░│ USize       │░░│ T[]
@@ -71,71 +77,101 @@ public:
 	//             └────────────────────┴──┴─────────────┴──┴───────────...
 	// Offset:     ↑ REF_COUNT_OFFSET      ↑ SIZE_OFFSET    ↑ DATA_OFFSET
 
-protected:
-	mutable void *_ptr = nullptr;
-
 	static constexpr size_t REF_COUNT_OFFSET = 0;
-	static constexpr size_t SIZE_OFFSET = ((CowBackingData::REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) % alignof(CowBackingData::USize) == 0) ? (CowBackingData::REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) : ((CowBackingData::REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) + alignof(CowBackingData::USize) - ((CowBackingData::REF_COUNT_OFFSET + sizeof(SafeNumeric<CowBackingData::USize>)) % alignof(CowBackingData::USize)));
-	static constexpr size_t DATA_OFFSET = ((CowBackingData::SIZE_OFFSET + sizeof(CowBackingData::USize)) % alignof(max_align_t) == 0) ? (CowBackingData::SIZE_OFFSET + sizeof(CowBackingData::USize)) : ((CowBackingData::SIZE_OFFSET + sizeof(CowBackingData::USize)) + alignof(max_align_t) - ((CowBackingData::SIZE_OFFSET + sizeof(CowBackingData::USize)) % alignof(max_align_t)));
+	static constexpr size_t SIZE_OFFSET = ((REF_COUNT_OFFSET + sizeof(SafeNumeric<USize>)) % alignof(USize) == 0) ? (REF_COUNT_OFFSET + sizeof(SafeNumeric<USize>)) : ((REF_COUNT_OFFSET + sizeof(SafeNumeric<USize>)) + alignof(USize) - ((REF_COUNT_OFFSET + sizeof(SafeNumeric<USize>)) % alignof(USize)));
+	static constexpr size_t DATA_OFFSET = ((SIZE_OFFSET + sizeof(USize)) % alignof(max_align_t) == 0) ? (SIZE_OFFSET + sizeof(USize)) : ((SIZE_OFFSET + sizeof(USize)) + alignof(max_align_t) - ((SIZE_OFFSET + sizeof(USize)) % alignof(max_align_t)));
 
-	static _FORCE_INLINE_ SafeNumeric<CowBackingData::USize> *_backing_get_refcount_ptr(uint8_t *p_ptr) {
-		return (SafeNumeric<CowBackingData::USize> *)(p_ptr + CowBackingData::REF_COUNT_OFFSET);
+	mutable T *_ptr = nullptr;
+
+	// internal helpers
+
+	static _FORCE_INLINE_ SafeNumeric<USize> *_get_refcount_ptr(uint8_t *p_ptr) {
+		return (SafeNumeric<USize> *)(p_ptr + REF_COUNT_OFFSET);
 	}
 
-	static _FORCE_INLINE_ CowBackingData::USize *_backing_get_size_ptr(uint8_t *p_ptr) {
-		return (CowBackingData::USize *)(p_ptr + CowBackingData::SIZE_OFFSET);
+	static _FORCE_INLINE_ USize *_get_size_ptr(uint8_t *p_ptr) {
+		return (USize *)(p_ptr + SIZE_OFFSET);
 	}
 
-	static _FORCE_INLINE_ void *_backing_get_data_ptr(uint8_t *p_ptr) {
-		return (void *)(p_ptr + CowBackingData::DATA_OFFSET);
+	static _FORCE_INLINE_ T *_get_data_ptr(uint8_t *p_ptr) {
+		return (T *)(p_ptr + DATA_OFFSET);
 	}
 
-	_FORCE_INLINE_ SafeNumeric<CowBackingData::USize> *_backing_get_refcount() const {
+	_FORCE_INLINE_ SafeNumeric<USize> *_get_refcount() const {
 		if (!_ptr) {
 			return nullptr;
 		}
 
-		return (SafeNumeric<CowBackingData::USize> *)((uint8_t *)_ptr - CowBackingData::DATA_OFFSET + CowBackingData::REF_COUNT_OFFSET);
+		return (SafeNumeric<USize> *)((uint8_t *)_ptr - DATA_OFFSET + REF_COUNT_OFFSET);
 	}
 
-	_FORCE_INLINE_ CowBackingData::USize *_backing_get_size() const {
+	_FORCE_INLINE_ USize *_get_size() const {
 		if (!_ptr) {
 			return nullptr;
 		}
 
-		return (CowBackingData::USize *)((uint8_t *)_ptr - CowBackingData::DATA_OFFSET + CowBackingData::SIZE_OFFSET);
+		return (USize *)((uint8_t *)_ptr - DATA_OFFSET + SIZE_OFFSET);
 	}
 
-	_FORCE_INLINE_ CowBackingData::USize _backing_get_alloc_size(CowBackingData::USize p_elements, size_t p_element_size) const {
-		return CowBackingData::next_po2(p_elements * p_element_size);
+	_FORCE_INLINE_ static USize _get_alloc_size(USize p_elements) {
+		return next_po2(p_elements * sizeof(T));
 	}
 
-	_FORCE_INLINE_ bool _backing_get_alloc_size_checked(CowBackingData::USize p_elements, CowBackingData::USize *out, size_t p_element_size) const {
+	_FORCE_INLINE_ static bool _get_alloc_size_checked(USize p_elements, USize *out) {
 		if (unlikely(p_elements == 0)) {
 			*out = 0;
 			return true;
 		}
 #if defined(__GNUC__) && defined(IS_32_BIT)
-		CowBackingData::USize o;
-		CowBackingData::USize p;
-		if (__builtin_mul_overflow(p_elements, p_element_size, &o)) {
+		USize o;
+		USize p;
+		if (__builtin_mul_overflow(p_elements, sizeof(T), &o)) {
 			*out = 0;
 			return false;
 		}
-		*out = CowBackingData::next_po2(o);
-		if (__builtin_add_overflow(o, static_cast<CowBackingData::USize>(32), &p)) {
+		*out = next_po2(o);
+		if (__builtin_add_overflow(o, static_cast<USize>(32), &p)) {
 			return false; // No longer allocated here.
 		}
 #else
 		// Speed is more important than correctness here, do the operations unchecked
 		// and hope for the best.
-		*out = _backing_get_alloc_size(p_elements, p_element_size);
+		*out = _get_alloc_size(p_elements);
 #endif
 		return *out;
 	}
 
-	_FORCE_INLINE_ CowBackingData::Size _backing_size() const {
-		CowBackingData::USize *size = (CowBackingData::USize *)_backing_get_size();
+	// Decrements the reference count. Deallocates the backing buffer if needed.
+	// After this function, _ptr is guaranteed to be NULL.
+	void _unref();
+	void _ref(const CowData *p_from);
+	void _ref(const CowData &p_from);
+	USize _copy_on_write();
+	Error _realloc(Size p_alloc_size);
+
+public:
+	void operator=(const CowData<T> &p_from) { _ref(p_from); }
+	void operator=(CowData<T> &&p_from) {
+		if (_ptr == p_from._ptr) {
+			return;
+		}
+
+		_unref();
+		_ptr = p_from._ptr;
+		p_from._ptr = nullptr;
+	}
+
+	_FORCE_INLINE_ T *ptrw() {
+		_copy_on_write();
+		return _ptr;
+	}
+
+	_FORCE_INLINE_ const T *ptr() const {
+		return _ptr;
+	}
+
+	_FORCE_INLINE_ Size size() const {
+		USize *size = (USize *)_get_size();
 		if (size) {
 			return *size;
 		} else {
@@ -143,207 +179,230 @@ protected:
 		}
 	}
 
-	void _backing_unref(bool p_is_trivially_destructible, void(*p_destructor_func)(void*), size_t p_element_size);
+	_FORCE_INLINE_ void clear() { resize(0); }
+	_FORCE_INLINE_ bool is_empty() const { return _ptr == nullptr; }
 
-	USize _backing_copy_on_write(bool p_is_trivially_copyable, void(*p_copy_func)(void*, void*), bool p_is_trivially_destructible, void(*p_destructor_func)(void*), size_t p_element_size);
-
-	Error _backing_resize(CowBackingData::Size p_size, bool p_is_zeroed, bool p_is_trivially_copyable, void(*p_copy_func)(void*, void*), bool p_is_trivially_constructible, void(*p_constructor_func)(void*), bool p_is_trivially_destructible, void(*p_destructor_func)(void*), size_t p_element_size);
-
-};
-
-template <typename T>
-class CowData : public CowBackingData {
-	template <typename TV>
-	friend class Vector;
-	friend class String;
-	friend class Char16String;
-	friend class CharString;
-	template <typename TV, typename VV>
-	friend class VMap;
-
-private:
-
-	static _FORCE_INLINE_ SafeNumeric<CowBackingData::USize> *_get_refcount_ptr(uint8_t *p_ptr) {
-		return CowBackingData::_backing_get_refcount_ptr(p_ptr);
-	}
-
-	static _FORCE_INLINE_ CowBackingData::USize *_get_size_ptr(uint8_t *p_ptr) {
-		return CowBackingData::_backing_get_size_ptr(p_ptr);
-	}
-
-	static _FORCE_INLINE_ T *_get_data_ptr(uint8_t *p_ptr) {
-		return (T *)CowBackingData::_backing_get_data_ptr(p_ptr);
-	}
-
-	_FORCE_INLINE_ SafeNumeric<CowBackingData::USize> *_get_refcount() const {
-		return CowBackingData::_backing_get_refcount();
-	}
-
-	_FORCE_INLINE_ CowBackingData::USize *_get_size() const {
-		return CowBackingData::_backing_get_size();
-	}
-
-	_FORCE_INLINE_ CowBackingData::USize _get_alloc_size(CowBackingData::USize p_elements) const {
-		return CowBackingData::_backing_get_alloc_size(p_elements, sizeof(T));
-	}
-
-	_FORCE_INLINE_ bool _get_alloc_size_checked(CowBackingData::USize p_elements, CowBackingData::USize *out) const {
-		return CowBackingData::_backing_get_alloc_size_checked(p_elements, out, sizeof(T));
-	}
-
-	void _unref();
-	void _ref(const CowData *p_from);
-	void _ref(const CowData &p_from);
-	CowBackingData::USize _copy_on_write();
-
-public:
-	void operator=(const CowData<T> &p_from) { _ref(p_from); }
-
-	T *ptrw() {
-		_copy_on_write();
-		return (static_cast<T*>(_ptr));
-	}
-
-	const T *ptr() const {
-		return (static_cast<T*>(_ptr));
-	}
-
-	CowBackingData::Size size() const {
-		return CowBackingData::_backing_size();
-	}
-
-	void clear() { resize(0); }
-	bool is_empty() const { return _ptr == nullptr; }
-
-	void set(CowBackingData::Size p_index, const T &p_elem) {
+	_FORCE_INLINE_ void set(Size p_index, const T &p_elem) {
 		ERR_FAIL_INDEX(p_index, size());
 		_copy_on_write();
-		(static_cast<T*>(_ptr))[p_index] = p_elem;
+		_ptr[p_index] = p_elem;
 	}
 
-	T &get_m(CowBackingData::Size p_index) {
+	_FORCE_INLINE_ T &get_m(Size p_index) {
 		CRASH_BAD_INDEX(p_index, size());
 		_copy_on_write();
-		return (static_cast<T*>(_ptr))[p_index];
+		return _ptr[p_index];
 	}
 
-	const T &get(CowBackingData::Size p_index) const {
+	_FORCE_INLINE_ const T &get(Size p_index) const {
 		CRASH_BAD_INDEX(p_index, size());
-		return (static_cast<T*>(_ptr))[p_index];
+
+		return _ptr[p_index];
 	}
 
-	Error resize(CowBackingData::Size p_size, bool p_is_zeroed=false);
+	template <bool p_ensure_zero = false>
+	Error resize(Size p_size);
 
-	void remove_at(CowBackingData::Size p_index) {
+	_FORCE_INLINE_ void remove_at(Size p_index) {
 		ERR_FAIL_INDEX(p_index, size());
 		T *p = ptrw();
-		CowBackingData::Size len = size();
-		for (CowBackingData::Size i = p_index; i < len - 1; i++) {
-			p[i] = p[i + 1];
+		Size len = size();
+		for (Size i = p_index; i < len - 1; i++) {
+			p[i] = std::move(p[i + 1]);
 		}
 
 		resize(len - 1);
 	}
 
-	Error insert(CowBackingData::Size p_pos, const T &p_val) {
-		CowBackingData::Size new_size = size() + 1;
+	Error insert(Size p_pos, const T &p_val) {
+		Size new_size = size() + 1;
 		ERR_FAIL_INDEX_V(p_pos, new_size, ERR_INVALID_PARAMETER);
 		Error err = resize(new_size);
 		ERR_FAIL_COND_V(err, err);
 		T *p = ptrw();
-		for (CowBackingData::Size i = new_size - 1; i > p_pos; i--) {
-			p[i] = p[i - 1];
+		for (Size i = new_size - 1; i > p_pos; i--) {
+			p[i] = std::move(p[i - 1]);
 		}
 		p[p_pos] = p_val;
 
 		return OK;
 	}
 
-	CowBackingData::Size find(const T &p_val, CowBackingData::Size p_from = 0) const;
-	CowBackingData::Size rfind(const T &p_val, CowBackingData::Size p_from = -1) const;
-	CowBackingData::Size count(const T &p_val) const;
+	_FORCE_INLINE_ operator Span<T>() const { return Span<T>(ptr(), size()); }
+	_FORCE_INLINE_ Span<T> span() const { return operator Span<T>(); }
 
 	_FORCE_INLINE_ CowData() {}
-	_FORCE_INLINE_ ~CowData();
-	_FORCE_INLINE_ CowData(CowData<T> &p_from) { _ref(p_from); };
+	_FORCE_INLINE_ ~CowData() { _unref(); }
+	_FORCE_INLINE_ CowData(std::initializer_list<T> p_init);
+	_FORCE_INLINE_ CowData(const CowData<T> &p_from) { _ref(p_from); }
+	_FORCE_INLINE_ CowData(CowData<T> &&p_from) {
+		_ptr = p_from._ptr;
+		p_from._ptr = nullptr;
+	}
 };
 
 template <typename T>
 void CowData<T>::_unref() {
-	CowBackingData::_backing_unref(std::is_trivially_destructible_v<T>, [](void* p_ptr){
-		T *t = static_cast<T*>(p_ptr);
-		t->~T();
-	}, sizeof(T));
-}
-
-template <typename T>
-typename CowBackingData::USize CowData<T>::_copy_on_write() {
-	return CowBackingData::_backing_copy_on_write(std::is_trivially_copyable_v<T>, [](void* target_ptr, void* src_ptr){
-		memnew_placement(static_cast<T*>(target_ptr), T(*(static_cast<T*>(src_ptr))));
-	}, std::is_trivially_destructible_v<T>,  [](void* p_ptr){
-		T *t = static_cast<T*>(p_ptr);
-		t->~T();
-	}, sizeof(T));
-}
-
-template <typename T>
-Error CowData<T>::resize(CowBackingData::Size p_size, bool p_is_zeroed) {
-	return CowBackingData::_backing_resize(p_size, p_is_zeroed, std::is_trivially_copyable_v<T>, [](void* target_ptr, void* src_ptr){
-		memnew_placement(static_cast<T*>(target_ptr), T(*(static_cast<T*>(src_ptr))));
-	}, std::is_trivially_constructible_v<T>, [](void* p_ptr){
-		memnew_placement(static_cast<T*>(p_ptr), T);
-	}, std::is_trivially_destructible_v<T>,  [](void* p_ptr){
-		T *t = static_cast<T*>(p_ptr);
-		t->~T();
-	}, sizeof(T));
-}
-
-template <typename T>
-typename CowBackingData::Size CowData<T>::find(const T &p_val, CowBackingData::Size p_from) const {
-	CowBackingData::Size ret = -1;
-
-	if (p_from < 0 || size() == 0) {
-		return ret;
+	if (!_ptr) {
+		return;
 	}
 
-	for (CowBackingData::Size i = p_from; i < size(); i++) {
-		if (get(i) == p_val) {
-			ret = i;
-			break;
+	SafeNumeric<USize> *refc = _get_refcount();
+	if (refc->decrement() > 0) {
+		// Data is still in use elsewhere.
+		_ptr = nullptr;
+		return;
+	}
+	// Clean up.
+	// First, invalidate our own reference.
+	// NOTE: It is required to do so immediately because it must not be observable outside of this
+	//       function after refcount has already been reduced to 0.
+	// WARNING: It must be done before calling the destructors, because one of them may otherwise
+	//          observe it through a reference to us. In this case, it may try to access the buffer,
+	//          which is illegal after some of the elements in it have already been destructed, and
+	//          may lead to a segmentation fault.
+	USize current_size = *_get_size();
+	T *prev_ptr = _ptr;
+	_ptr = nullptr;
+
+	if constexpr (!std::is_trivially_destructible_v<T>) {
+		for (USize i = 0; i < current_size; ++i) {
+			prev_ptr[i].~T();
 		}
 	}
 
-	return ret;
+	// free mem
+	Memory::free_static((uint8_t *)prev_ptr - DATA_OFFSET, false);
 }
 
 template <typename T>
-typename CowBackingData::Size CowData<T>::rfind(const T &p_val, CowBackingData::Size p_from) const {
-	const CowBackingData::Size s = size();
-
-	if (p_from < 0) {
-		p_from = s + p_from;
-	}
-	if (p_from < 0 || p_from >= s) {
-		p_from = s - 1;
+typename CowData<T>::USize CowData<T>::_copy_on_write() {
+	if (!_ptr) {
+		return 0;
 	}
 
-	for (CowBackingData::Size i = p_from; i >= 0; i--) {
-		if (get(i) == p_val) {
-			return i;
+	SafeNumeric<USize> *refc = _get_refcount();
+
+	USize rc = refc->get();
+	if (unlikely(rc > 1)) {
+		/* in use by more than me */
+		USize current_size = *_get_size();
+
+		uint8_t *mem_new = (uint8_t *)Memory::alloc_static(_get_alloc_size(current_size) + DATA_OFFSET, false);
+		ERR_FAIL_NULL_V(mem_new, 0);
+
+		SafeNumeric<USize> *_refc_ptr = _get_refcount_ptr(mem_new);
+		USize *_size_ptr = _get_size_ptr(mem_new);
+		T *_data_ptr = _get_data_ptr(mem_new);
+
+		new (_refc_ptr) SafeNumeric<USize>(1); //refcount
+		*(_size_ptr) = current_size; //size
+
+		// initialize new elements
+		if constexpr (std::is_trivially_copyable_v<T>) {
+			memcpy((uint8_t *)_data_ptr, _ptr, current_size * sizeof(T));
+		} else {
+			for (USize i = 0; i < current_size; i++) {
+				memnew_placement(&_data_ptr[i], T(_ptr[i]));
+			}
 		}
+
+		_unref();
+		_ptr = _data_ptr;
+
+		rc = 1;
 	}
-	return -1;
+	return rc;
 }
 
 template <typename T>
-typename CowBackingData::Size CowData<T>::count(const T &p_val) const {
-	CowBackingData::Size amount = 0;
-	for (CowBackingData::Size i = 0; i < size(); i++) {
-		if (get(i) == p_val) {
-			amount++;
-		}
+template <bool p_ensure_zero>
+Error CowData<T>::resize(Size p_size) {
+	ERR_FAIL_COND_V(p_size < 0, ERR_INVALID_PARAMETER);
+
+	Size current_size = size();
+
+	if (p_size == current_size) {
+		return OK;
 	}
-	return amount;
+
+	if (p_size == 0) {
+		// Wants to clean up.
+		_unref(); // Resets _ptr to nullptr.
+		return OK;
+	}
+
+	// possibly changing size, copy on write
+	_copy_on_write();
+
+	USize current_alloc_size = _get_alloc_size(current_size);
+	USize alloc_size;
+	ERR_FAIL_COND_V(!_get_alloc_size_checked(p_size, &alloc_size), ERR_OUT_OF_MEMORY);
+
+	if (p_size > current_size) {
+		if (alloc_size != current_alloc_size) {
+			if (current_size == 0) {
+				// alloc from scratch
+				uint8_t *mem_new = (uint8_t *)Memory::alloc_static(alloc_size + DATA_OFFSET, false);
+				ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
+
+				SafeNumeric<USize> *_refc_ptr = _get_refcount_ptr(mem_new);
+				USize *_size_ptr = _get_size_ptr(mem_new);
+				T *_data_ptr = _get_data_ptr(mem_new);
+
+				new (_refc_ptr) SafeNumeric<USize>(1); //refcount
+				*(_size_ptr) = 0; //size, currently none
+
+				_ptr = _data_ptr;
+
+			} else {
+				const Error error = _realloc(alloc_size);
+				if (error) {
+					return error;
+				}
+			}
+		}
+
+		// construct the newly created elements
+		memnew_arr_placement<p_ensure_zero>(_ptr + current_size, p_size - current_size);
+
+		*_get_size() = p_size;
+
+	} else if (p_size < current_size) {
+		if constexpr (!std::is_trivially_destructible_v<T>) {
+			// deinitialize no longer needed elements
+			for (USize i = p_size; i < *_get_size(); i++) {
+				T *t = &_ptr[i];
+				t->~T();
+			}
+		}
+
+		if (alloc_size != current_alloc_size) {
+			const Error error = _realloc(alloc_size);
+			if (error) {
+				return error;
+			}
+		}
+
+		*_get_size() = p_size;
+	}
+
+	return OK;
+}
+
+template <typename T>
+Error CowData<T>::_realloc(Size p_alloc_size) {
+	uint8_t *mem_new = (uint8_t *)Memory::realloc_static(((uint8_t *)_ptr) - DATA_OFFSET, p_alloc_size + DATA_OFFSET, false);
+	ERR_FAIL_NULL_V(mem_new, ERR_OUT_OF_MEMORY);
+
+	SafeNumeric<USize> *_refc_ptr = _get_refcount_ptr(mem_new);
+	T *_data_ptr = _get_data_ptr(mem_new);
+
+	// If we realloc, we're guaranteed to be the only reference.
+	new (_refc_ptr) SafeNumeric<USize>(1);
+	_ptr = _data_ptr;
+
+	return OK;
 }
 
 template <typename T>
@@ -357,8 +416,7 @@ void CowData<T>::_ref(const CowData &p_from) {
 		return; // self assign, do nothing.
 	}
 
-	_unref();
-	_ptr = nullptr;
+	_unref(); // Resets _ptr to nullptr.
 
 	if (!p_from._ptr) {
 		return; //nothing to do
@@ -370,12 +428,20 @@ void CowData<T>::_ref(const CowData &p_from) {
 }
 
 template <typename T>
-CowData<T>::~CowData() {
-	_unref();
+CowData<T>::CowData(std::initializer_list<T> p_init) {
+	Error err = resize(p_init.size());
+	if (err != OK) {
+		return;
+	}
+
+	Size i = 0;
+	for (const T &element : p_init) {
+		set(i++, element);
+	}
 }
 
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
+GODOT_GCC_WARNING_POP
 
-#endif // COWDATA_H
+// Zero-constructing CowData initializes _ptr to nullptr (and thus empty).
+template <typename T>
+struct is_zero_constructible<CowData<T>> : std::true_type {};

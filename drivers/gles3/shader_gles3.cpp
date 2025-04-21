@@ -32,7 +32,6 @@
 
 #ifdef GLES3_ENABLED
 
-#include "core/io/compression.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
 
@@ -74,7 +73,7 @@ void ShaderGLES3::_add_stage(const char *p_code, StageType p_stage_type) {
 		} else if (l.begins_with("#CODE")) {
 			chunk.type = StageTemplate::Chunk::TYPE_CODE;
 			push_chunk = true;
-			chunk.code = l.replace_first("#CODE", String()).replace(":", "").strip_edges().to_upper();
+			chunk.code = l.replace_first("#CODE", String()).remove_char(':').strip_edges().to_upper();
 		} else {
 			text += l + "\n";
 		}
@@ -169,6 +168,10 @@ void ShaderGLES3::_build_variant_code(StringBuilder &builder, uint32_t p_variant
 		builder.append("#define USE_GLES_OVER_GL\n");
 	} else {
 		builder.append("#version 300 es\n");
+	}
+
+	if (GLES3::Config::get_singleton()->polyfill_half2float) {
+		builder.append("#define USE_HALF2FLOAT\n");
 	}
 
 	for (int i = 0; i < specialization_count; i++) {
@@ -706,7 +709,7 @@ void ShaderGLES3::_save_to_cache(Version *p_version) {
 
 void ShaderGLES3::_clear_version(Version *p_version) {
 	// Variants not compiled yet, just return
-	if (p_version->variants.size() == 0) {
+	if (p_version->variants.is_empty()) {
 		return;
 	}
 

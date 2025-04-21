@@ -28,8 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef WINDOWS_EXPORT_PLUGIN_H
-#define WINDOWS_EXPORT_PLUGIN_H
+#pragma once
 
 #include "core/io/file_access.h"
 #include "core/os/os.h"
@@ -59,7 +58,7 @@ class EditorExportPlatformWindows : public EditorExportPlatformPC {
 			ssh_args = p_ssh_arg;
 			cmd_args = p_cmd_args;
 			wait = p_wait;
-		};
+		}
 	};
 
 	Ref<ImageTexture> run_icon;
@@ -100,5 +99,3 @@ public:
 
 	EditorExportPlatformWindows();
 };
-
-#endif // WINDOWS_EXPORT_PLUGIN_H

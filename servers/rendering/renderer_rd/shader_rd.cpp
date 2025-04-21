@@ -30,14 +30,12 @@
 
 #include "shader_rd.h"
 
-#include "core/io/compression.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
 #include "core/object/worker_thread_pool.h"
 #include "core/version.h"
-#include "renderer_compositor_rd.h"
 #include "servers/rendering/rendering_device.h"
-#include "thirdparty/misc/smolv.h"
+#include "servers/rendering/shader_include_db.h"
 
 #define ENABLE_SHADER_CACHE 1
 
@@ -46,7 +44,8 @@ void ShaderRD::_add_stage(const char *p_code, StageType p_stage_type) {
 
 	String text;
 
-	for (int i = 0; i < lines.size(); i++) {
+	int line_count = lines.size();
+	for (int i = 0; i < line_count; i++) {
 		const String &l = lines[i];
 		bool push_chunk = false;
 
@@ -77,7 +76,36 @@ void ShaderRD::_add_stage(const char *p_code, StageType p_stage_type) {
 		} else if (l.begins_with("#CODE")) {
 			chunk.type = StageTemplate::Chunk::TYPE_CODE;
 			push_chunk = true;
-			chunk.code = l.replace_first("#CODE", String()).replace(":", "").strip_edges().to_upper();
+			chunk.code = l.replace_first("#CODE", String()).remove_char(':').strip_edges().to_upper();
+		} else if (l.begins_with("#include ")) {
+			String include_file = l.replace("#include ", "").strip_edges();
+			if (include_file[0] == '"') {
+				int end_pos = include_file.find_char('"', 1);
+				if (end_pos >= 0) {
+					include_file = include_file.substr(1, end_pos - 1);
+
+					String include_code = ShaderIncludeDB::get_built_in_include_file(include_file);
+					if (!include_code.is_empty()) {
+						// Add these lines into our parse list so we parse them as well.
+						Vector<String> include_lines = include_code.split("\n");
+
+						for (int j = include_lines.size() - 1; j >= 0; j--) {
+							lines.insert(i + 1, include_lines[j]);
+						}
+
+						line_count = lines.size();
+					} else {
+						// Add it in as is.
+						text += l + "\n";
+					}
+				} else {
+					// Add it in as is.
+					text += l + "\n";
+				}
+			} else {
+				// Add it in as is.
+				text += l + "\n";
+			}
 		} else {
 			text += l + "\n";
 		}
@@ -121,9 +149,9 @@ void ShaderRD::setup(const char *p_vertex_code, const char *p_fragment_code, con
 
 	StringBuilder tohash;
 	tohash.append("[GodotVersionNumber]");
-	tohash.append(VERSION_NUMBER);
+	tohash.append(GODOT_VERSION_NUMBER);
 	tohash.append("[GodotVersionHash]");
-	tohash.append(VERSION_HASH);
+	tohash.append(GODOT_VERSION_HASH);
 	tohash.append("[SpirvCacheKey]");
 	tohash.append(RenderingDevice::get_singleton()->shader_get_spirv_cache_key());
 	tohash.append("[BinaryCacheKey]");
@@ -148,7 +176,11 @@ RID ShaderRD::version_create() {
 	version.initialize_needed = true;
 	version.variants.clear();
 	version.variant_data.clear();
-	return version_owner.make_rid(version);
+	version.mutex = memnew(Mutex);
+	RID rid = version_owner.make_rid(version);
+	MutexLock lock(versions_mutex);
+	version_mutexes.insert(rid, version.mutex);
+	return rid;
 }
 
 void ShaderRD::_initialize_version(Version *p_version) {
@@ -159,8 +191,7 @@ void ShaderRD::_initialize_version(Version *p_version) {
 
 	p_version->variants.resize_zeroed(variant_defines.size());
 	p_version->variant_data.resize(variant_defines.size());
-	p_version->group_compilation_tasks.resize(group_enabled.size());
-	p_version->group_compilation_tasks.fill(0);
+	p_version->group_compilation_tasks.resize_zeroed(group_enabled.size());
 }
 
 void ShaderRD::_clear_version(Version *p_version) {
@@ -255,7 +286,7 @@ void ShaderRD::_compile_variant(uint32_t p_variant, CompileData p_data) {
 		current_source = builder.as_string();
 		RD::ShaderStageSPIRVData stage;
 		stage.spirv = RD::get_singleton()->shader_compile_spirv_from_source(RD::SHADER_STAGE_VERTEX, current_source, RD::SHADER_LANGUAGE_GLSL, &error);
-		if (stage.spirv.size() == 0) {
+		if (stage.spirv.is_empty()) {
 			build_ok = false;
 		} else {
 			stage.shader_stage = RD::SHADER_STAGE_VERTEX;
@@ -273,7 +304,7 @@ void ShaderRD::_compile_variant(uint32_t p_variant, CompileData p_data) {
 		current_source = builder.as_string();
 		RD::ShaderStageSPIRVData stage;
 		stage.spirv = RD::get_singleton()->shader_compile_spirv_from_source(RD::SHADER_STAGE_FRAGMENT, current_source, RD::SHADER_LANGUAGE_GLSL, &error);
-		if (stage.spirv.size() == 0) {
+		if (stage.spirv.is_empty()) {
 			build_ok = false;
 		} else {
 			stage.shader_stage = RD::SHADER_STAGE_FRAGMENT;
@@ -292,7 +323,7 @@ void ShaderRD::_compile_variant(uint32_t p_variant, CompileData p_data) {
 
 		RD::ShaderStageSPIRVData stage;
 		stage.spirv = RD::get_singleton()->shader_compile_spirv_from_source(RD::SHADER_STAGE_COMPUTE, current_source, RD::SHADER_LANGUAGE_GLSL, &error);
-		if (stage.spirv.size() == 0) {
+		if (stage.spirv.is_empty()) {
 			build_ok = false;
 		} else {
 			stage.shader_stage = RD::SHADER_STAGE_COMPUTE;
@@ -301,7 +332,6 @@ void ShaderRD::_compile_variant(uint32_t p_variant, CompileData p_data) {
 	}
 
 	if (!build_ok) {
-		MutexLock lock(variant_set_mutex); //properly print the errors
 		ERR_PRINT("Error compiling " + String(current_stage == RD::SHADER_STAGE_COMPUTE ? "Compute " : (current_stage == RD::SHADER_STAGE_VERTEX ? "Vertex" : "Fragment")) + " shader, variant #" + itos(variant) + " (" + variant_defines[variant].text.get_data() + ").");
 		ERR_PRINT(error);
 
@@ -316,9 +346,7 @@ void ShaderRD::_compile_variant(uint32_t p_variant, CompileData p_data) {
 	ERR_FAIL_COND(shader_data.is_empty());
 
 	{
-		MutexLock lock(variant_set_mutex);
-
-		p_data.version->variants.write[variant] = RD::get_singleton()->shader_create_from_bytecode(shader_data, p_data.version->variants[variant]);
+		p_data.version->variants.write[variant] = RD::get_singleton()->shader_create_from_bytecode_with_samplers(shader_data, p_data.version->variants[variant], immutable_samplers);
 		p_data.version->variant_data.write[variant] = shader_data;
 	}
 }
@@ -327,6 +355,8 @@ RS::ShaderNativeSourceCode ShaderRD::version_get_native_source_code(RID p_versio
 	Version *version = version_owner.get_or_null(p_version);
 	RS::ShaderNativeSourceCode source_code;
 	ERR_FAIL_NULL_V(version, source_code);
+
+	MutexLock lock(*version->mutex);
 
 	source_code.versions.resize(variant_defines.size());
 
@@ -405,7 +435,7 @@ String ShaderRD::_version_get_sha1(Version *p_version) const {
 }
 
 static const char *shader_file_header = "GDSC";
-static const uint32_t cache_file_version = 3;
+static const uint32_t cache_file_version = 4;
 
 String ShaderRD::_get_cache_file_path(Version *p_version, int p_group) {
 	const String &sha1 = _version_get_sha1(p_version);
@@ -454,13 +484,11 @@ bool ShaderRD::_load_from_cache(Version *p_version, int p_group) {
 	for (uint32_t i = 0; i < variant_count; i++) {
 		int variant_id = group_to_variant_map[p_group][i];
 		if (!variants_enabled[variant_id]) {
-			MutexLock lock(variant_set_mutex);
 			p_version->variants.write[variant_id] = RID();
 			continue;
 		}
 		{
-			MutexLock lock(variant_set_mutex);
-			RID shader = RD::get_singleton()->shader_create_from_bytecode(p_version->variant_data[variant_id], p_version->variants[variant_id]);
+			RID shader = RD::get_singleton()->shader_create_from_bytecode_with_samplers(p_version->variant_data[variant_id], p_version->variants[variant_id], immutable_samplers);
 			if (shader.is_null()) {
 				for (uint32_t j = 0; j < i; j++) {
 					int variant_free_id = group_to_variant_map[p_group][j];
@@ -500,7 +528,6 @@ void ShaderRD::_allocate_placeholders(Version *p_version, int p_group) {
 		int variant_id = group_to_variant_map[p_group][i];
 		RID shader = RD::get_singleton()->shader_create_placeholder();
 		{
-			MutexLock lock(variant_set_mutex);
 			p_version->variants.write[variant_id] = shader;
 		}
 	}
@@ -535,7 +562,6 @@ void ShaderRD::_compile_version_end(Version *p_version, int p_group) {
 	if (p_version->group_compilation_tasks.size() <= p_group || p_version->group_compilation_tasks[p_group] == 0) {
 		return;
 	}
-
 	WorkerThreadPool::GroupID group_task = p_version->group_compilation_tasks[p_group];
 	WorkerThreadPool::get_singleton()->wait_for_group_task_completion(group_task);
 	p_version->group_compilation_tasks.write[p_group] = 0;
@@ -590,6 +616,8 @@ void ShaderRD::version_set_code(RID p_version, const HashMap<String, String> &p_
 	Version *version = version_owner.get_or_null(p_version);
 	ERR_FAIL_NULL(version);
 
+	MutexLock lock(*version->mutex);
+
 	_compile_ensure_finished(version);
 
 	version->vertex_globals = p_vertex_globals.utf8();
@@ -625,6 +653,8 @@ void ShaderRD::version_set_compute_code(RID p_version, const HashMap<String, Str
 	Version *version = version_owner.get_or_null(p_version);
 	ERR_FAIL_NULL(version);
 
+	MutexLock lock(*version->mutex);
+
 	_compile_ensure_finished(version);
 
 	version->compute_globals = p_compute_globals.utf8();
@@ -658,6 +688,8 @@ bool ShaderRD::version_is_valid(RID p_version) {
 	Version *version = version_owner.get_or_null(p_version);
 	ERR_FAIL_NULL_V(version, false);
 
+	MutexLock lock(*version->mutex);
+
 	if (version->dirty) {
 		_initialize_version(version);
 		for (int i = 0; i < group_enabled.size(); i++) {
@@ -676,9 +708,17 @@ bool ShaderRD::version_is_valid(RID p_version) {
 
 bool ShaderRD::version_free(RID p_version) {
 	if (version_owner.owns(p_version)) {
+		{
+			MutexLock lock(versions_mutex);
+			version_mutexes.erase(p_version);
+		}
+
 		Version *version = version_owner.get_or_null(p_version);
+		version->mutex->lock();
 		_clear_version(version);
 		version_owner.free(p_version);
+		version->mutex->unlock();
+		memdelete(version->mutex);
 	} else {
 		return false;
 	}
@@ -712,7 +752,9 @@ void ShaderRD::enable_group(int p_group) {
 	version_owner.get_owned_list(&all_versions);
 	for (const RID &E : all_versions) {
 		Version *version = version_owner.get_or_null(E);
+		version->mutex->lock();
 		_compile_version_start(version, p_group);
+		version->mutex->unlock();
 	}
 }
 
@@ -738,7 +780,8 @@ ShaderRD::ShaderRD() {
 	base_compute_defines = base_compute_define_text.ascii();
 }
 
-void ShaderRD::initialize(const Vector<String> &p_variant_defines, const String &p_general_defines) {
+void ShaderRD::initialize(const Vector<String> &p_variant_defines, const String &p_general_defines, const Vector<RD::PipelineImmutableSampler> &r_immutable_samplers) {
+	immutable_samplers = r_immutable_samplers;
 	ERR_FAIL_COND(variant_defines.size());
 	ERR_FAIL_COND(p_variant_defines.is_empty());
 

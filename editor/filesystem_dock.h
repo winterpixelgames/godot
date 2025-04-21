@@ -28,8 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef FILESYSTEM_DOCK_H
-#define FILESYSTEM_DOCK_H
+#pragma once
 
 #include "editor/dependency_editor.h"
 #include "editor/editor_file_system.h"
@@ -60,7 +59,7 @@ class FileSystemTree : public Tree {
 class FileSystemList : public ItemList {
 	GDCLASS(FileSystemList, ItemList);
 
-	bool popup_edit_commited = true;
+	bool popup_edit_committed = true;
 	VBoxContainer *popup_editor_vb = nullptr;
 	Popup *popup_editor = nullptr;
 	LineEdit *line_editor = nullptr;
@@ -116,7 +115,6 @@ private:
 		FILE_REMOVE,
 		FILE_DUPLICATE,
 		FILE_REIMPORT,
-		FILE_INFO,
 		FILE_NEW,
 		FILE_SHOW_IN_EXPLORER,
 		FILE_OPEN_EXTERNAL,
@@ -134,6 +132,7 @@ private:
 		CONVERT_BASE_ID = 1000,
 	};
 
+	HashMap<String, TreeItem *> folder_map;
 	HashMap<String, Color> folder_colors;
 	Dictionary assigned_folder_colors;
 
@@ -152,7 +151,6 @@ private:
 	Button *button_dock_placement = nullptr;
 
 	Button *button_toggle_display_mode = nullptr;
-	Button *button_reload = nullptr;
 	Button *button_file_list_display_mode = nullptr;
 	Button *button_hist_next = nullptr;
 	Button *button_hist_prev = nullptr;
@@ -233,6 +231,9 @@ private:
 	FileSystemTree *tree = nullptr;
 	FileSystemList *files = nullptr;
 	bool import_dock_needs_update = false;
+	TreeItem *resources_item = nullptr;
+	TreeItem *favorites_item = nullptr;
+	Control *had_focus = nullptr;
 
 	bool holding_branch = false;
 	Vector<TreeItem *> tree_items_selected_on_drag_begin;
@@ -246,9 +247,10 @@ private:
 	void _reselect_items_selected_on_drag_begin(bool reset = false);
 
 	Ref<Texture2D> _get_tree_item_icon(bool p_is_valid, const String &p_file_type, const String &p_icon_path);
-	bool _create_tree(TreeItem *p_parent, EditorFileSystemDirectory *p_dir, Vector<String> &uncollapsed_paths, bool p_select_in_favorites, bool p_unfold_path = false);
-	void _update_tree(const Vector<String> &p_uncollapsed_paths = Vector<String>(), bool p_uncollapse_root = false, bool p_select_in_favorites = false, bool p_unfold_path = false);
+	void _create_tree(TreeItem *p_parent, EditorFileSystemDirectory *p_dir, Vector<String> &uncollapsed_paths, bool p_select_in_favorites, bool p_unfold_path = false);
+	void _update_tree(const Vector<String> &p_uncollapsed_paths = Vector<String>(), bool p_uncollapse_root = false, bool p_scroll_to_selected = true);
 	void _navigate_to_path(const String &p_path, bool p_select_in_favorites = false);
+	bool _update_filtered_items(TreeItem *p_tree_item = nullptr);
 
 	void _file_list_gui_input(Ref<InputEvent> p_event);
 	void _tree_gui_input(Ref<InputEvent> p_event);
@@ -260,7 +262,7 @@ private:
 	void _set_file_display(bool p_active);
 	void _fs_changed();
 
-	void _select_file(const String &p_path, bool p_select_in_favorites = false);
+	void _select_file(const String &p_path, bool p_select_in_favorites = false, bool p_navigate = true);
 	void _tree_activate_file();
 	void _file_list_activate_file(int p_idx);
 	void _file_multi_selected(int p_index, bool p_selected);
@@ -276,7 +278,7 @@ private:
 	void _before_move(HashMap<String, ResourceUID::ID> &r_uids, HashSet<String> &r_file_owners) const;
 	void _update_dependencies_after_move(const HashMap<String, String> &p_renames, const HashSet<String> &p_file_owners) const;
 	void _update_resource_paths_after_move(const HashMap<String, String> &p_renames, const HashMap<String, ResourceUID::ID> &p_uids) const;
-	void _update_favorites_list_after_move(const HashMap<String, String> &p_files_renames, const HashMap<String, String> &p_folders_renames) const;
+	void _update_favorites_after_move(const HashMap<String, String> &p_files_renames, const HashMap<String, String> &p_folders_renames) const;
 	void _update_project_settings_after_move(const HashMap<String, String> &p_renames, const HashMap<String, String> &p_folders_renames);
 	String _get_unique_name(const FileOrFolder &p_entry, const String &p_at_path);
 
@@ -354,8 +356,11 @@ private:
 	bool _can_dock_horizontal() const;
 	void _set_dock_horizontal(bool p_enable);
 
+	void _save_layout_to_config(Ref<ConfigFile> p_layout, const String &p_section) const;
+	void _load_layout_from_config(Ref<ConfigFile> p_layout, const String &p_section);
+
 private:
-	static FileSystemDock *singleton;
+	inline static FileSystemDock *singleton = nullptr;
 
 public:
 	static FileSystemDock *get_singleton() { return singleton; }
@@ -378,6 +383,7 @@ public:
 
 	String get_current_path() const;
 	String get_current_directory() const;
+	String get_folder_path_at_mouse_position() const;
 
 	void navigate_to_path(const String &p_path);
 	void focus_on_path();
@@ -402,7 +408,7 @@ public:
 	FileSortOption get_file_sort() const { return file_sort; }
 
 	void set_file_list_display_mode(FileListDisplayMode p_mode);
-	FileListDisplayMode get_file_list_display_mode() const { return file_list_display_mode; };
+	FileListDisplayMode get_file_list_display_mode() const { return file_list_display_mode; }
 
 	Tree *get_tree_control() { return tree; }
 
@@ -410,13 +416,8 @@ public:
 	void remove_resource_tooltip_plugin(const Ref<EditorResourceTooltipPlugin> &p_plugin);
 	Control *create_tooltip_for_path(const String &p_path) const;
 
-	void save_layout_to_config(Ref<ConfigFile> p_layout, const String &p_section) const;
-	void load_layout_from_config(Ref<ConfigFile> p_layout, const String &p_section);
-
 	FileSystemDock();
 	~FileSystemDock();
 };
 
 VARIANT_ENUM_CAST(FileSystemDock::Overwrite);
-
-#endif // FILESYSTEM_DOCK_H

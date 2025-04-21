@@ -28,13 +28,11 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef CAMERA_FEED_H
-#define CAMERA_FEED_H
+#pragma once
 
 #include "core/io/image.h"
 #include "core/math/transform_2d.h"
 #include "servers/camera_server.h"
-#include "servers/rendering_server.h"
 
 /**
 	The camera server is a singleton object that gives access to the various
@@ -49,7 +47,8 @@ public:
 		FEED_NOIMAGE, // we don't have an image yet
 		FEED_RGB, // our texture will contain a normal RGB texture that can be used directly
 		FEED_YCBCR, // our texture will contain a YCbCr texture that needs to be converted to RGB before output
-		FEED_YCBCR_SEP // our camera is split into two textures, first plane contains Y data, second plane contains CbCr data
+		FEED_YCBCR_SEP, // our camera is split into two textures, first plane contains Y data, second plane contains CbCr data
+		FEED_EXTERNAL, // specific for android atm, camera feed is managed externally, assumed RGB for now
 	};
 
 	enum FeedPosition {
@@ -104,6 +103,7 @@ public:
 	void set_transform(const Transform2D &p_transform);
 
 	RID get_texture(CameraServer::FeedImage p_which);
+	uint64_t get_texture_tex_id(CameraServer::FeedImage p_which);
 
 	CameraFeed();
 	CameraFeed(String p_name, FeedPosition p_position = CameraFeed::FEED_UNSPECIFIED);
@@ -113,6 +113,7 @@ public:
 	void set_rgb_image(const Ref<Image> &p_rgb_img);
 	void set_ycbcr_image(const Ref<Image> &p_ycbcr_img);
 	void set_ycbcr_images(const Ref<Image> &p_y_img, const Ref<Image> &p_cbcr_img);
+	void set_external(int p_width, int p_height);
 
 	virtual bool set_format(int p_index, const Dictionary &p_parameters);
 	virtual Array get_formats() const;
@@ -120,9 +121,10 @@ public:
 
 	virtual bool activate_feed();
 	virtual void deactivate_feed();
+
+	GDVIRTUAL0R(bool, _activate_feed)
+	GDVIRTUAL0(_deactivate_feed)
 };
 
 VARIANT_ENUM_CAST(CameraFeed::FeedDataType);
 VARIANT_ENUM_CAST(CameraFeed::FeedPosition);
-
-#endif // CAMERA_FEED_H
